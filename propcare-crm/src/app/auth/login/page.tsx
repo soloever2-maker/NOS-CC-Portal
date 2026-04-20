@@ -82,7 +82,7 @@ export default function LoginPage() {
                 color: "var(--gold-400)",
               }}
             >
-              PropCare
+              Nations of Sky
             </h1>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
               CRM Platform
@@ -134,7 +134,7 @@ export default function LoginPage() {
         <div className="relative z-10">
           <div className="gold-divider mb-4" />
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            © {new Date().getFullYear()} PropCare CRM. All rights reserved.
+            © {new Date().getFullYear()} Nations of Sky CRM. All rights reserved.
           </p>
         </div>
       </div>
@@ -148,7 +148,7 @@ export default function LoginPage() {
               <Crown className="w-4.5 h-4.5" style={{ color: "var(--black-950)" }} />
             </div>
             <span className="text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: "var(--gold-400)" }}>
-              PropCare CRM
+              Nations of Sky CRM
             </span>
           </div>
 
@@ -160,7 +160,7 @@ export default function LoginPage() {
               Welcome back
             </h2>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Sign in to your PropCare account
+              Sign in to your Nations of Sky account
             </p>
           </div>
 
@@ -180,7 +180,7 @@ export default function LoginPage() {
               <Label className="mb-1.5 block">Email Address</Label>
               <Input
                 type="email"
-                placeholder="you@propcare.com"
+                placeholder="you@nos-crm.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 startIcon={<Mail className="w-3.5 h-3.5" />}
@@ -228,37 +228,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full" style={{ borderTop: "1px solid var(--border)" }} />
-            </div>
-            <div className="relative flex justify-center text-xs" style={{ color: "var(--text-muted)" }}>
-              <span className="px-3" style={{ background: "var(--black-950)" }}>
-                Demo credentials
-              </span>
-            </div>
-          </div>
 
-          {/* Demo credentials */}
-          <div
-            className="rounded-[10px] p-4 space-y-2 text-xs"
-            style={{ background: "var(--black-800)", border: "0.5px solid var(--border)" }}
-          >
-            <p className="font-semibold" style={{ color: "var(--text-secondary)" }}>Demo Access</p>
-            <div className="space-y-1" style={{ color: "var(--text-muted)" }}>
-              <p>📧 admin@propcare.demo</p>
-              <p>🔑 PropCare2024!</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setEmail("admin@propcare.demo"); setPassword("PropCare2024!"); }}
-              className="text-xs font-semibold transition-colors"
-              style={{ color: "var(--gold-500)" }}
-            >
-              Auto-fill credentials →
-            </button>
-          </div>
         </div>
       </div>
     </div>
