@@ -1,248 +1,248 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Ticket, Users, CheckCircle2, Clock, AlertCircle, Building2, ArrowUpRight, ArrowRight } from "lucide-react";
+import {
+  Plus, Search, Clock, User, MoreHorizontal, Eye, Trash2, ChevronDown, Filter,
+} from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { formatRelativeTime } from "@/lib/utils";
+import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS, type TicketStatus, type TicketPriority, type TicketCategory } from "@/types";
+import { NOS_PROJECTS } from "@/lib/constants";
+import { SLAIndicator } from "@/components/ui/sla-indicator";
 
-interface Stats {
-  totalTickets: number;
-  openTickets: number;
-  inProgress: number;
-  resolvedToday: number;
-  totalClients: number;
-  totalProperties: number;
-  byStatus: Record<string, number>;
-  byCategory: Record<string, number>;
-}
+const STATUS_BADGE: Record<TicketStatus, BadgeProps["variant"]> = {
+  OPEN: "open", IN_PROGRESS: "in-progress", PENDING_CLIENT: "in-progress",
+  RESOLVED: "resolved", CLOSED: "closed",
+};
+const PRIORITY_BADGE: Record<TicketPriority, BadgeProps["variant"]> = {
+  LOW: "low", MEDIUM: "medium", HIGH: "high", URGENT: "urgent",
+};
+const STATUSES = ["ALL", "OPEN", "IN_PROGRESS", "PENDING_CLIENT", "RESOLVED", "CLOSED"] as const;
 
-const CATEGORY_LABELS: Record<string, string> = {
-  MAINTENANCE: "Maintenance", COMPLAINT: "Complaint", INQUIRY: "Inquiry",
-  PAYMENT: "Payment", LEASE: "Lease", HANDOVER: "Handover", OTHER: "Other",
+const SOURCE_LABELS: Record<string, string> = {
+  walk_in: "Walk-in", call_center: "Call Center", email: "Email",
+};
+const SOURCE_COLORS: Record<string, string> = {
+  walk_in: "var(--info)", call_center: "var(--warning)", email: "var(--success)",
 };
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+interface Ticket {
+  id: string; code: string; title: string; status: TicketStatus;
+  priority: TicketPriority; category: TicketCategory; project?: string;
+  source?: string | null; sla_hours?: number | null;
+  client: { name: string } | null;
+  assigned_to: { name: string } | null;
+  created_at: string; due_date: string | null; resolved_at?: string | null;
+}
+
+export default function TicketsPage() {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [activeStatus, setActiveStatus] = useState<string>("ALL");
+  const [activeProject, setActiveProject] = useState<string>("ALL");
 
-  useEffect(() => {
-    fetch("/api/stats")
-      .then(r => r.json())
-      .then(j => { if (j.success) setStats(j.data); })
-      .finally(() => setLoading(false));
-  }, []);
+  const fetchTickets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (activeStatus !== "ALL") params.set("status", activeStatus);
+      if (activeProject !== "ALL") params.set("project", activeProject);
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/tickets?${params}`);
+      const json = await res.json();
+      if (json.success) setTickets(json.data ?? []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [activeStatus, activeProject, search]);
 
-  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+  useEffect(() => { fetchTickets(); }, [fetchTickets]);
 
-  const KPI_CARDS = [
-    { label: "Total Tickets", value: stats?.totalTickets ?? 0, icon: Ticket, color: "var(--gold-500)", bg: "var(--gold-glow)" },
-    { label: "Open Tickets", value: stats?.openTickets ?? 0, icon: AlertCircle, color: "var(--danger)", bg: "rgba(239,68,68,0.1)" },
-    { label: "In Progress", value: stats?.inProgress ?? 0, icon: Clock, color: "var(--warning)", bg: "rgba(245,158,11,0.1)" },
-    { label: "Resolved Today", value: stats?.resolvedToday ?? 0, icon: CheckCircle2, color: "var(--success)", bg: "rgba(34,197,94,0.1)" },
-    { label: "Total Clients", value: stats?.totalClients ?? 0, icon: Users, color: "var(--info)", bg: "rgba(59,130,246,0.1)" },
-    { label: "Properties", value: stats?.totalProperties ?? 0, icon: Building2, color: "var(--gold-500)", bg: "var(--gold-glow)" },
-  ];
+  const counts = STATUSES.reduce<Record<string, number>>((acc, s) => {
+    acc[s] = s === "ALL" ? tickets.length : tickets.filter(t => t.status === s).length;
+    return acc;
+  }, {});
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
-      <Topbar title="Dashboard" subtitle={`Good morning — ${today}`} notificationCount={0} />
+      <Topbar
+        title="Tickets"
+        subtitle={`${tickets.length} ticket${tickets.length !== 1 ? "s" : ""}${activeProject !== "ALL" ? ` · ${activeProject}` : ""}`}
+        actions={<Button size="sm" asChild><Link href="/dashboard/tickets/new"><Plus className="w-3.5 h-3.5" /> New Ticket</Link></Button>}
+      />
 
-      <div className="flex-1 p-6 space-y-6">
-        {/* KPI Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {KPI_CARDS.map((s) => (
-            <div key={s.label} className="stat-card">
-              <div className="w-9 h-9 rounded-[8px] flex items-center justify-center mb-3" style={{ background: s.bg }}>
-                <s.icon className="w-4 h-4" style={{ color: s.color }} />
-              </div>
-              {loading ? (
-                <div className="skeleton h-7 w-12 mb-1" />
-              ) : (
-                <p className="text-2xl font-bold leading-none mb-1" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>
-                  {s.value}
-                </p>
-              )}
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{s.label}</p>
-            </div>
+      <div className="flex-1 p-6 space-y-4">
+        {/* Search + Project Filter */}
+        <div className="flex flex-wrap gap-3">
+          <div className="max-w-sm w-full">
+            <Input placeholder="Search tickets…" startIcon={<Search className="w-3.5 h-3.5" />} value={search} onChange={(e) => setSearch(e.target.value)} className="h-9" />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Filter className="w-3.5 h-3.5" />
+                {activeProject === "ALL" ? "All Projects" : activeProject}
+                <ChevronDown className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => setActiveProject("ALL")}>
+                <span className={activeProject === "ALL" ? "text-[var(--gold-500)] font-semibold" : ""}>All Projects</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {NOS_PROJECTS.map((p) => (
+                <DropdownMenuItem key={p} onClick={() => setActiveProject(p)}>
+                  <span className={activeProject === p ? "text-[var(--gold-500)] font-semibold" : ""}>{p}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Status Tabs */}
+        <div className="flex gap-1 p-1 rounded-[10px] w-fit overflow-x-auto" style={{ background: "var(--black-800)", border: "0.5px solid var(--border)" }}>
+          {STATUSES.map((s) => (
+            <button key={s} onClick={() => setActiveStatus(s)}
+              className="px-3 py-1.5 rounded-[7px] text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5"
+              style={{ background: activeStatus === s ? "rgba(201,168,76,0.2)" : "transparent", color: activeStatus === s ? "var(--gold-500)" : "var(--text-muted)", border: activeStatus === s ? "0.5px solid var(--gold-500)" : "0.5px solid transparent" }}>
+              {s === "ALL" ? "All" : TICKET_STATUS_LABELS[s as TicketStatus]}
+              <span className="px-1.5 rounded-full text-[10px] font-bold" style={{ background: activeStatus === s ? "var(--gold-500)" : "var(--black-600)", color: activeStatus === s ? "var(--black-950)" : "var(--text-muted)" }}>
+                {counts[s] ?? 0}
+              </span>
+            </button>
           ))}
         </div>
 
-        {/* Quick Actions + Breakdown */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>QUICK ACTIONS</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                { label: "New Ticket", href: "/dashboard/tickets/new", desc: "Open a customer support ticket" },
-                { label: "New Client", href: "/dashboard/clients/new", desc: "Add a new client to the database" },
-                { label: "New Property", href: "/dashboard/properties/new", desc: "Register a new property" },
-              ].map((a) => (
-                <Link key={a.href} href={a.href}>
-                  <div className="flex items-center justify-between p-3 rounded-[8px] transition-all group cursor-pointer"
-                    style={{ background: "var(--black-700)", border: "0.5px solid var(--border)" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border-strong)"; (e.currentTarget as HTMLDivElement).style.background = "var(--gold-glow)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLDivElement).style.background = "var(--black-700)"; }}>
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: "var(--gold-400)" }}>{a.label}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{a.desc}</p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} />
-                  </div>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Tickets by Status */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>TICKETS BY STATUS</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {loading ? (
-                [...Array(4)].map((_, i) => <div key={i} className="skeleton h-4 w-full" />)
-              ) : Object.keys(stats?.byStatus ?? {}).length === 0 ? (
-                <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>No tickets yet</p>
-              ) : Object.entries(stats?.byStatus ?? {}).map(([status, count]) => {
-                const total = stats?.totalTickets ?? 1;
-                const pct = Math.round((count / total) * 100);
-                const colors: Record<string, string> = { OPEN: "var(--info)", IN_PROGRESS: "var(--warning)", PENDING_CLIENT: "var(--warning)", RESOLVED: "var(--success)", CLOSED: "var(--text-muted)" };
-                const labels: Record<string, string> = { OPEN: "Open", IN_PROGRESS: "In Progress", PENDING_CLIENT: "Pending", RESOLVED: "Resolved", CLOSED: "Closed" };
-                return (
-                  <div key={status} className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: colors[status] ?? "var(--text-muted)" }} />
-                    <span className="text-sm flex-1" style={{ color: "var(--text-secondary)" }}>{labels[status] ?? status}</span>
-                    <div className="h-1.5 rounded-full w-16" style={{ background: "var(--black-600)" }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: colors[status] ?? "var(--text-muted)" }} />
-                    </div>
-                    <span className="text-sm font-semibold w-6 text-right" style={{ color: "var(--text-primary)" }}>{count}</span>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Tickets by Category */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>TICKETS BY CATEGORY</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {loading ? (
-                [...Array(5)].map((_, i) => <div key={i} className="skeleton h-4 w-full" />)
-              ) : Object.keys(stats?.byCategory ?? {}).length === 0 ? (
-                <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>No tickets yet</p>
-              ) : Object.entries(stats?.byCategory ?? {})
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 6)
-                .map(([cat, count]) => {
-                  const total = stats?.totalTickets ?? 1;
-                  const pct = Math.round((count / total) * 100);
-                  return (
-                    <div key={cat} className="flex items-center justify-between gap-2">
-                      <span className="text-xs flex-1" style={{ color: "var(--text-secondary)" }}>{CATEGORY_LABELS[cat] ?? cat}</span>
-                      <div className="h-1 rounded-full flex-1 max-w-[80px]" style={{ background: `linear-gradient(90deg, var(--gold-500) ${pct}%, var(--black-600) ${pct}%)` }} />
-                      <span className="text-xs font-medium w-6 text-right" style={{ color: "var(--text-muted)" }}>{pct}%</span>
-                    </div>
-                  );
-                })}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Tickets */}
-        <RecentTicketsWidget />
-      </div>
-    </div>
-  );
-}
-
-// ── Recent Tickets Widget ─────────────────────────────────────
-
-interface RecentTicket {
-  id: string; code: string; title: string; status: string; priority: string;
-  project?: string; client: { name: string } | null; created_at: string;
-}
-
-function RecentTicketsWidget() {
-  const [tickets, setTickets] = useState<RecentTicket[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/tickets?limit=5")
-      .then(r => r.json())
-      .then(j => { if (j.success) setTickets((j.data ?? []).slice(0, 6)); })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const STATUS_COLOR: Record<string, string> = {
-    OPEN: "var(--info)", IN_PROGRESS: "var(--warning)", PENDING_CLIENT: "var(--warning)",
-    RESOLVED: "var(--success)", CLOSED: "var(--text-muted)",
-  };
-  const STATUS_LABEL: Record<string, string> = {
-    OPEN: "Open", IN_PROGRESS: "In Progress", PENDING_CLIENT: "Pending",
-    RESOLVED: "Resolved", CLOSED: "Closed",
-  };
-  const PRIORITY_COLOR: Record<string, string> = {
-    LOW: "var(--text-muted)", MEDIUM: "var(--info)", HIGH: "var(--warning)", URGENT: "var(--danger)",
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>RECENT TICKETS</CardTitle>
-          <Button variant="ghost" size="sm" asChild className="text-xs gap-1">
-            <Link href="/dashboard/tickets">View all <ArrowRight className="w-3 h-3" /></Link>
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        {loading ? (
-          <div className="p-6 space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-10 w-full" />)}</div>
-        ) : tickets.length === 0 ? (
-          <div className="text-center py-12" style={{ color: "var(--text-muted)" }}>
-            <Ticket className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No tickets yet</p>
-            <Link href="/dashboard/tickets/new">
-              <Button variant="secondary" size="sm" className="mt-3">Create first ticket</Button>
-            </Link>
-          </div>
-        ) : (
+        {/* Table */}
+        <div className="rounded-[12px] overflow-hidden" style={{ border: "0.5px solid var(--border)", background: "var(--black-800)" }}>
           <table className="crm-table">
             <thead>
-              <tr><th>Ticket</th><th>Project</th><th>Client</th><th>Status</th><th>Priority</th></tr>
+              <tr>
+                <th>Ticket</th>
+                <th>Source</th>
+                <th>Project</th>
+                <th>Client</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>SLA</th>
+                <th>Assigned To</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
             </thead>
             <tbody>
-              {tickets.map(t => (
-                <tr key={t.id}>
-                  <td>
-                    <Link href={`/dashboard/tickets/${t.id}`} className="text-sm font-medium hover:text-[var(--gold-400)] transition-colors line-clamp-1 block" style={{ color: "var(--text-primary)" }}>{t.title}</Link>
-                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{t.code}</p>
-                  </td>
-                  <td><span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.project ?? "—"}</span></td>
-                  <td><span className="text-sm" style={{ color: "var(--text-secondary)" }}>{t.client?.name ?? "—"}</span></td>
-                  <td>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: `${STATUS_COLOR[t.status]}22`, color: STATUS_COLOR[t.status], border: `1px solid ${STATUS_COLOR[t.status]}44` }}>
-                      {STATUS_LABEL[t.status] ?? t.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="text-xs font-semibold" style={{ color: PRIORITY_COLOR[t.priority] ?? "var(--text-muted)" }}>
-                      {t.priority}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan={10} className="text-center py-12"><div className="w-6 h-6 border-2 border-t-[var(--gold-500)] rounded-full animate-spin mx-auto" /></td></tr>
+              ) : tickets.length === 0 ? (
+                <tr><td colSpan={10} className="text-center py-12" style={{ color: "var(--text-muted)" }}>
+                  <p className="text-sm">{activeProject !== "ALL" ? `No tickets for ${activeProject}` : "No tickets found"}</p>
+                </td></tr>
+              ) : tickets.map((ticket) => {
+                const isOverdue = ticket.due_date && new Date(ticket.due_date) < new Date() && !["RESOLVED","CLOSED"].includes(ticket.status);
+                return (
+                  <tr key={ticket.id} className="group">
+                    {/* Ticket */}
+                    <td style={{ maxWidth: 220 }}>
+                      <Link href={`/dashboard/tickets/${ticket.id}`} className="text-sm font-medium hover:text-[var(--gold-400)] transition-colors line-clamp-1 block" style={{ color: "var(--text-primary)" }}>{ticket.title}</Link>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{ticket.code}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{TICKET_CATEGORY_LABELS[ticket.category] ?? ticket.category}</span>
+                        {isOverdue && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "var(--danger)" }}>OVERDUE</span>}
+                      </div>
+                    </td>
+
+                    {/* Source */}
+                    <td>
+                      {ticket.source ? (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+                          style={{ background: `${SOURCE_COLORS[ticket.source]}22`, color: SOURCE_COLORS[ticket.source], border: `1px solid ${SOURCE_COLORS[ticket.source]}44` }}>
+                          {SOURCE_LABELS[ticket.source] ?? ticket.source}
+                        </span>
+                      ) : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                    </td>
+
+                    {/* Project */}
+                    <td>
+                      {ticket.project ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                          style={{ background: "var(--gold-glow)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>
+                          {ticket.project}
+                        </span>
+                      ) : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                    </td>
+
+                    {/* Client */}
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3 h-3 shrink-0" style={{ color: "var(--text-muted)" }} />
+                        <span className="text-sm whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>{ticket.client?.name ?? "—"}</span>
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td><Badge variant={STATUS_BADGE[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Badge></td>
+
+                    {/* Priority */}
+                    <td><Badge variant={PRIORITY_BADGE[ticket.priority]}>{TICKET_PRIORITY_LABELS[ticket.priority]}</Badge></td>
+
+                    {/* SLA */}
+                    <td>
+                      <SLAIndicator
+                        ticketId={ticket.id}
+                        category={ticket.category}
+                        source={ticket.source}
+                        createdAt={ticket.created_at}
+                        status={ticket.status}
+                        resolvedAt={ticket.resolved_at}
+                        slaHours={ticket.sla_hours}
+                      />
+                    </td>
+
+                    {/* Assigned To */}
+                    <td>
+                      {ticket.assigned_to ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
+                            {ticket.assigned_to.name.split(" ").map((n: string) => n[0]).join("").slice(0,2)}
+                          </div>
+                          <span className="text-sm whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>{ticket.assigned_to.name}</span>
+                        </div>
+                      ) : <span className="text-xs italic" style={{ color: "var(--text-muted)" }}>Unassigned</span>}
+                    </td>
+
+                    {/* Created */}
+                    <td>
+                      <div className="flex items-center gap-1 whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                        <Clock className="w-3 h-3" />
+                        <span className="text-xs">{formatRelativeTime(ticket.created_at)}</span>
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="w-7 h-7 rounded-[6px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--text-muted)" }}><MoreHorizontal className="w-4 h-4" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild><Link href={`/dashboard/tickets/${ticket.id}`}><Eye className="w-4 h-4" /> View</Link></DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem destructive><Trash2 className="w-4 h-4" /> Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+    </div>
   );
 }
