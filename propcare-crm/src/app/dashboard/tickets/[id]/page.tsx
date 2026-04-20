@@ -57,6 +57,11 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [assignedTo, setAssignedTo] = useState<{ id: string; name: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [csatScore, setCsatScore] = useState<number | null>(null);
+  const [csatNotes, setCsatNotes] = useState("");
+  const [csatSaving, setCsatSaving] = useState(false);
+  const [csatSaved, setCsatSaved] = useState(false);
+  const [existingCsat, setExistingCsat] = useState<{ score: number; notes?: string } | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -73,6 +78,14 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
         if (data) { setTicket(data); setCurrentStatus(data.status); setAssignedTo(data.assigned_to ?? null); }
         setLoading(false);
       });
+
+    // Load existing CSAT
+    supabase.from("csat_scores").select("score, notes")
+      .eq("ticket_id", params.id)
+      .eq("month", new Date().getMonth() + 1)
+      .eq("year", new Date().getFullYear())
+      .single()
+      .then(({ data }) => { if (data) { setExistingCsat(data); setCsatScore(data.score); setCsatNotes(data.notes ?? ""); } });
 
     // Check current user role + load agents
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -109,6 +122,31 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     await supabase.from("tickets").update({ assigned_to_id: agentId, updated_at: new Date().toISOString() }).eq("id", params.id);
     setAssignedTo(agent);
     setAssigning(false);
+  };
+
+  const handleCSAT = async () => {
+    if (!csatScore || !ticket) return;
+    setCsatSaving(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
+      if (!profile) return;
+
+      await supabase.from("csat_scores").upsert({
+        id: existingCsat ? undefined : crypto.randomUUID(),
+        ticket_id: params.id,
+        agent_id: assignedTo?.id ?? profile.id,
+        score: csatScore,
+        notes: csatNotes,
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear(),
+      });
+      setExistingCsat({ score: csatScore, notes: csatNotes });
+      setCsatSaved(true);
+      setTimeout(() => setCsatSaved(false), 3000);
+    } finally { setCsatSaving(false); }
   };
 
   const handleComment = async () => {
@@ -352,6 +390,70 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                 />
               </CardContent>
             </Card>
+
+            {/* CSAT Card - Admin only, show when ticket is Resolved or Closed */}
+            {isAdmin && ["RESOLVED", "CLOSED"].includes(currentStatus) && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>CSAT SCORE</CardTitle>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>Admin</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {csatSaved && (
+                    <div className="flex items-center gap-1.5 text-xs p-2 rounded-[6px]" style={{ background: "rgba(34,197,94,0.1)", color: "var(--success)" }}>
+                      <CheckCircle className="w-3.5 h-3.5" /> Saved successfully
+                    </div>
+                  )}
+                  {existingCsat && !csatSaved && (
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Current: {existingCsat.score}/5 ⭐</p>
+                  )}
+                  <div>
+                    <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Customer Satisfaction</p>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <button key={s} type="button" onClick={() => setCsatScore(s)}
+                          className="w-9 h-9 rounded-[8px] flex items-center justify-center transition-all text-sm font-bold"
+                          style={{
+                            background: csatScore && csatScore >= s ? "var(--gold-glow)" : "var(--black-700)",
+                            border: csatScore && csatScore >= s ? "1px solid var(--gold-500)" : "1px solid var(--black-500)",
+                            color: csatScore && csatScore >= s ? "var(--gold-400)" : "var(--text-muted)",
+                          }}>
+                          <Star className="w-4 h-4" fill={csatScore && csatScore >= s ? "var(--gold-400)" : "none"} />
+                        </button>
+                      ))}
+                    </div>
+                    {csatScore && (
+                      <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
+                        {["", "Very Dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very Satisfied"][csatScore]}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Notes (optional)</p>
+                    <textarea
+                      value={csatNotes}
+                      onChange={e => setCsatNotes(e.target.value)}
+                      placeholder="Any notes about the customer satisfaction…"
+                      rows={2}
+                      className="crm-input w-full text-xs resize-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleCSAT}
+                    disabled={!csatScore || csatSaving}
+                    className="w-full py-1.5 rounded-[8px] text-xs font-semibold transition-all"
+                    style={{
+                      background: csatScore ? "var(--gold-glow)" : "var(--black-700)",
+                      border: csatScore ? "1px solid var(--gold-500)" : "1px solid var(--black-500)",
+                      color: csatScore ? "var(--gold-400)" : "var(--text-muted)",
+                    }}>
+                    {csatSaving ? "Saving…" : existingCsat ? "Update Score" : "Save Score"}
+                  </button>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>TIMELINE</CardTitle></CardHeader>
