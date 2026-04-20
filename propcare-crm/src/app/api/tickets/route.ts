@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const search = searchParams.get("search");
+    const project = searchParams.get("project");
 
     let query = supabase
       .from("tickets")
@@ -20,13 +21,9 @@ export async function GET(req: NextRequest) {
       `)
       .order("created_at", { ascending: false });
 
-    if (status && status !== "ALL") {
-      query = query.eq("status", status);
-    }
-
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,code.ilike.%${search}%`);
-    }
+    if (status && status !== "ALL") query = query.eq("status", status);
+    if (project && project !== "ALL") query = query.eq("project", project);
+    if (search) query = query.or(`title.ilike.%${search}%,code.ilike.%${search}%`);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -44,12 +41,8 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-    // Get user record
     const { data: userRecord } = await supabase
-      .from("users")
-      .select("id")
-      .eq("supabase_id", user.id)
-      .single();
+      .from("users").select("id").eq("supabase_id", user.id).single();
 
     const body = await req.json();
     const code = generateCode("TKT");
@@ -64,6 +57,7 @@ export async function POST(req: NextRequest) {
         status: body.status ?? "OPEN",
         priority: body.priority ?? "MEDIUM",
         category: body.category ?? "OTHER",
+        project: body.project || null,
         client_id: body.clientId || null,
         property_id: body.propertyId || null,
         assigned_to_id: body.assignedToId || null,
@@ -72,8 +66,7 @@ export async function POST(req: NextRequest) {
         tags: body.tags ?? [],
         attachments: [],
       })
-      .select()
-      .single();
+      .select().single();
 
     if (error) throw error;
     return NextResponse.json({ success: true, data });
