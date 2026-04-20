@@ -1,44 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft, Edit, Clock, User, Building2, Tag, MessageSquare,
-  Send, Lock, CheckCircle, AlertTriangle, RefreshCw, X,
-} from "lucide-react";
+import { ArrowLeft, Edit, Clock, User, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-elements";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateTime, formatRelativeTime } from "@/lib/utils";
-import {
-  TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS,
-  type TicketStatus, type TicketPriority,
-} from "@/types";
-
-// Mock data
-const TICKET = {
-  id: "1", code: "TKT-A1B2C",
-  title: "AC unit not working in Unit 4B",
-  description: "The air conditioning unit in apartment 4B has completely stopped functioning. The tenant reports that it stopped working yesterday evening around 8 PM. The outdoor unit appears to be running but no cold air is coming through the vents. This is a high-priority issue given the current temperatures.\n\nTenant has already tried resetting the thermostat and the circuit breaker without success.",
-  status: "IN_PROGRESS" as TicketStatus,
-  priority: "URGENT" as TicketPriority,
-  category: "MAINTENANCE",
-  client: { name: "Ahmed Al-Farsi", phone: "+971 50 123 4567", email: "ahmed@example.com" },
-  property: { name: "Bloom Heights - Tower A", unit: "4B", city: "Dubai" },
-  assignedTo: { name: "Sarah Mitchell", initials: "SM" },
-  createdBy: { name: "Omar Al-Rashid", initials: "OR" },
-  createdAt: new Date(Date.now() - 1000 * 60 * 90),
-  dueDate: new Date(Date.now() + 1000 * 60 * 60 * 2),
-  tags: ["ac", "hvac", "urgent-maintenance"],
-  comments: [
-    { id: "1", author: { name: "Omar Al-Rashid", initials: "OR" }, content: "Ticket created and assigned to maintenance team. Sarah will be on site within 2 hours.", isInternal: false, createdAt: new Date(Date.now() - 1000 * 60 * 85) },
-    { id: "2", author: { name: "Sarah Mitchell", initials: "SM" }, content: "On my way to the property. Will assess the issue and update.", isInternal: false, createdAt: new Date(Date.now() - 1000 * 60 * 60) },
-    { id: "3", author: { name: "Sarah Mitchell", initials: "SM" }, content: "Internal note: The outdoor compressor unit has a refrigerant leak. Need to contact HVAC contractor. Part may need to be ordered — could take 24-48 hours.", isInternal: true, createdAt: new Date(Date.now() - 1000 * 60 * 40) },
-  ],
-};
+import { formatDateTime, formatRelativeTime, getInitials } from "@/lib/utils";
+import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS, type TicketStatus, type TicketPriority } from "@/types";
+import { createClient } from "@/lib/supabase/client";
 
 const STATUS_BADGE: Record<TicketStatus, BadgeProps["variant"]> = {
   OPEN: "open", IN_PROGRESS: "in-progress", PENDING_CLIENT: "in-progress",
@@ -47,107 +20,147 @@ const STATUS_BADGE: Record<TicketStatus, BadgeProps["variant"]> = {
 const PRIORITY_BADGE: Record<TicketPriority, BadgeProps["variant"]> = {
   LOW: "low", MEDIUM: "medium", HIGH: "high", URGENT: "urgent",
 };
-
-const STATUS_ACTIONS: { status: TicketStatus; label: string; icon: React.ElementType; color: string }[] = [
-  { status: "IN_PROGRESS", label: "Start Progress", icon: RefreshCw, color: "var(--warning)" },
-  { status: "PENDING_CLIENT", label: "Pending Client", icon: Clock, color: "var(--info)" },
-  { status: "RESOLVED", label: "Mark Resolved", icon: CheckCircle, color: "var(--success)" },
-  { status: "CLOSED", label: "Close Ticket", icon: X, color: "var(--text-muted)" },
+const STATUS_ACTIONS = [
+  { status: "IN_PROGRESS" as TicketStatus, label: "Start Progress", icon: RefreshCw, color: "var(--warning)" },
+  { status: "PENDING_CLIENT" as TicketStatus, label: "Pending Client", icon: Clock, color: "var(--info)" },
+  { status: "RESOLVED" as TicketStatus, label: "Mark Resolved", icon: CheckCircle, color: "var(--success)" },
+  { status: "CLOSED" as TicketStatus, label: "Close Ticket", icon: X, color: "var(--text-muted)" },
 ];
 
+interface Ticket {
+  id: string; code: string; title: string; description: string;
+  status: TicketStatus; priority: TicketPriority; category: string;
+  project?: string; tags: string[]; due_date?: string;
+  created_at: string; updated_at: string;
+  client: { id: string; name: string; phone: string; email?: string } | null;
+  property: { id: string; name: string; unit?: string; city?: string } | null;
+  assigned_to: { id: string; name: string } | null;
+  created_by: { id: string; name: string } | null;
+}
+
+interface Comment {
+  id: string; content: string; is_internal: boolean; created_at: string;
+  user: { name: string } | null;
+}
+
 export default function TicketDetailPage({ params }: { params: { id: string } }) {
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState(TICKET.status);
+  const [currentStatus, setCurrentStatus] = useState<TicketStatus>("OPEN");
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Fetch ticket
+    supabase.from("tickets").select(`
+      *,
+      client:clients(id, name, phone, email),
+      property:properties(id, name, unit, city),
+      assigned_to:users!tickets_assigned_to_id_fkey(id, name),
+      created_by:users!tickets_created_by_id_fkey(id, name)
+    `).eq("id", params.id).single()
+      .then(({ data }) => {
+        if (data) { setTicket(data); setCurrentStatus(data.status); }
+        setLoading(false);
+      });
+
+    // Fetch comments
+    supabase.from("ticket_comments").select(`
+      *, user:users(name)
+    `).eq("ticket_id", params.id).order("created_at", { ascending: true })
+      .then(({ data }) => setComments(data ?? []));
+  }, [params.id]);
+
+  const handleStatusChange = async (status: TicketStatus) => {
+    const supabase = createClient();
+    await supabase.from("tickets").update({ status, updated_at: new Date().toISOString() }).eq("id", params.id);
+    setCurrentStatus(status);
+  };
 
   const handleComment = async () => {
     if (!comment.trim()) return;
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setComment("");
-    setSubmitting(false);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
+      if (!profile) return;
+
+      const { data: newComment } = await supabase.from("ticket_comments").insert({
+        id: crypto.randomUUID(),
+        ticket_id: params.id,
+        user_id: profile.id,
+        content: comment,
+        is_internal: isInternal,
+        attachments: [],
+      }).select("*, user:users(name)").single();
+
+      if (newComment) setComments(prev => [...prev, newComment]);
+      setComment("");
+    } finally { setSubmitting(false); }
   };
+
+  if (loading) return (
+    <div className="flex flex-col min-h-screen animate-fade-in">
+      <Topbar title="Loading…" />
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-t-[var(--gold-500)] rounded-full animate-spin" />
+      </div>
+    </div>
+  );
+
+  if (!ticket) return (
+    <div className="flex flex-col min-h-screen animate-fade-in">
+      <Topbar title="Ticket not found" actions={<Button variant="ghost" size="sm" asChild><Link href="/dashboard/tickets"><ArrowLeft className="w-3.5 h-3.5" /> Back</Link></Button>} />
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center"><AlertCircle className="w-10 h-10 mx-auto mb-3 opacity-40" style={{ color: "var(--text-muted)" }} /><p style={{ color: "var(--text-muted)" }}>Ticket not found</p></div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
-      <Topbar
-        title={TICKET.code}
-        subtitle={TICKET.title}
+      <Topbar title={ticket.code} subtitle={ticket.title}
         actions={
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/tickets">
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
-              </Link>
-            </Button>
-            <Button variant="secondary" size="sm">
-              <Edit className="w-3.5 h-3.5" /> Edit
-            </Button>
+            <Button variant="ghost" size="sm" asChild><Link href="/dashboard/tickets"><ArrowLeft className="w-3.5 h-3.5" /> Back</Link></Button>
           </div>
         }
       />
-
       <div className="flex-1 p-6">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 max-w-7xl">
-          {/* ── Main Content ── */}
+          {/* Main */}
           <div className="xl:col-span-2 space-y-4">
-            {/* Ticket Info */}
             <Card>
               <CardContent className="pt-6">
                 <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge variant={STATUS_BADGE[currentStatus]}>
-                    {TICKET_STATUS_LABELS[currentStatus]}
-                  </Badge>
-                  <Badge variant={PRIORITY_BADGE[TICKET.priority]}>
-                    {TICKET_PRIORITY_LABELS[TICKET.priority]}
-                  </Badge>
-                  <Badge variant="outline">
-                    {TICKET_CATEGORY_LABELS[TICKET.category as keyof typeof TICKET_CATEGORY_LABELS]}
-                  </Badge>
-                  {TICKET.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
-                      style={{ background: "var(--black-600)", color: "var(--text-muted)" }}
-                    >
-                      <Tag className="w-2.5 h-2.5" />
-                      {tag}
+                  <Badge variant={STATUS_BADGE[currentStatus]}>{TICKET_STATUS_LABELS[currentStatus]}</Badge>
+                  <Badge variant={PRIORITY_BADGE[ticket.priority]}>{TICKET_PRIORITY_LABELS[ticket.priority]}</Badge>
+                  <Badge variant="outline">{TICKET_CATEGORY_LABELS[ticket.category as keyof typeof TICKET_CATEGORY_LABELS] ?? ticket.category}</Badge>
+                  {ticket.project && <Badge variant="gold">{ticket.project}</Badge>}
+                  {(ticket.tags ?? []).map(tag => (
+                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ background: "var(--black-600)", color: "var(--text-muted)" }}>
+                      <Tag className="w-2.5 h-2.5" />{tag}
                     </span>
                   ))}
                 </div>
-
-                <h2
-                  className="text-xl font-semibold mb-4"
-                  style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--text-primary)" }}
-                >
-                  {TICKET.title}
-                </h2>
-
-                <div
-                  className="text-sm whitespace-pre-line leading-relaxed"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {TICKET.description}
-                </div>
+                <h2 className="text-xl font-semibold mb-4" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>{ticket.title}</h2>
+                <div className="text-sm whitespace-pre-line leading-relaxed" style={{ color: "var(--text-secondary)" }}>{ticket.description}</div>
               </CardContent>
             </Card>
 
-            {/* Status Change Actions */}
+            {/* Status Actions */}
             <div className="flex flex-wrap gap-2">
               {STATUS_ACTIONS.map(({ status, label, icon: Icon, color }) => (
-                <button
-                  key={status}
-                  onClick={() => setCurrentStatus(status)}
+                <button key={status} onClick={() => handleStatusChange(status)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-semibold transition-all"
-                  style={{
-                    background: currentStatus === status ? "rgba(201,168,76,0.15)" : "var(--black-700)",
-                    border: currentStatus === status ? "1px solid var(--gold-500)" : "1px solid var(--black-500)",
-                    color: currentStatus === status ? "var(--gold-500)" : color,
-                  }}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
+                  style={{ background: currentStatus === status ? "rgba(201,168,76,0.15)" : "var(--black-700)", border: currentStatus === status ? "1px solid var(--gold-500)" : "1px solid var(--black-500)", color: currentStatus === status ? "var(--gold-500)" : color }}>
+                  <Icon className="w-3.5 h-3.5" />{label}
                 </button>
               ))}
             </div>
@@ -155,72 +168,46 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             {/* Comments */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  ACTIVITY & COMMENTS ({TICKET.comments.length})
-                </CardTitle>
+                <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ACTIVITY & COMMENTS ({comments.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {TICKET.comments.map((c) => (
+                {comments.length === 0 && (
+                  <div className="text-center py-6" style={{ color: "var(--text-muted)" }}>
+                    <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No comments yet</p>
+                  </div>
+                )}
+                {comments.map((c) => (
                   <div key={c.id} className="flex gap-3">
                     <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-                      <AvatarFallback className="text-xs">{c.author.initials}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{c.user?.name ? getInitials(c.user.name) : "?"}</AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`rounded-[10px] p-3 ${c.isInternal ? "border border-dashed" : ""}`}
-                        style={{
-                          background: c.isInternal ? "rgba(245,158,11,0.05)" : "var(--black-700)",
-                          borderColor: c.isInternal ? "rgba(245,158,11,0.3)" : "transparent",
-                        }}
-                      >
+                    <div className="flex-1">
+                      <div className="rounded-[10px] p-3" style={{ background: c.is_internal ? "rgba(245,158,11,0.05)" : "var(--black-700)", border: c.is_internal ? "1px dashed rgba(245,158,11,0.3)" : "none" }}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                              {c.author.name}
-                            </span>
-                            {c.isInternal && (
-                              <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.15)", color: "var(--warning)" }}>
-                                <Lock className="w-2.5 h-2.5" /> Internal
-                              </span>
-                            )}
+                            <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{c.user?.name ?? "Unknown"}</span>
+                            {c.is_internal && <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.15)", color: "var(--warning)" }}><Lock className="w-2.5 h-2.5" /> Internal</span>}
                           </div>
-                          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                            {formatRelativeTime(c.createdAt)}
-                          </span>
+                          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{formatRelativeTime(c.created_at)}</span>
                         </div>
-                        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                          {c.content}
-                        </p>
+                        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{c.content}</p>
                       </div>
                     </div>
                   </div>
                 ))}
 
-                {/* Add Comment */}
+                {/* Add comment */}
                 <div className="flex gap-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                  <Avatar className="h-8 w-8 shrink-0 mt-1">
-                    <AvatarFallback className="text-xs">ME</AvatarFallback>
-                  </Avatar>
+                  <Avatar className="h-8 w-8 shrink-0 mt-1"><AvatarFallback className="text-xs">ME</AvatarFallback></Avatar>
                   <div className="flex-1 space-y-2">
-                    <Textarea
-                      placeholder="Write a comment…"
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      rows={3}
-                    />
+                    <Textarea placeholder="Write a comment…" value={comment} onChange={e => setComment(e.target.value)} rows={3} />
                     <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setIsInternal(!isInternal)}
-                        className="flex items-center gap-1.5 text-xs font-medium transition-colors"
-                        style={{ color: isInternal ? "var(--warning)" : "var(--text-muted)" }}
-                      >
-                        <Lock className="w-3.5 h-3.5" />
-                        {isInternal ? "Internal note" : "Make internal"}
+                      <button type="button" onClick={() => setIsInternal(!isInternal)} className="flex items-center gap-1.5 text-xs font-medium transition-colors" style={{ color: isInternal ? "var(--warning)" : "var(--text-muted)" }}>
+                        <Lock className="w-3.5 h-3.5" />{isInternal ? "Internal note" : "Make internal"}
                       </button>
                       <Button size="sm" onClick={handleComment} loading={submitting} disabled={!comment.trim()}>
-                        <Send className="w-3.5 h-3.5" />
-                        {submitting ? "Sending…" : "Comment"}
+                        <Send className="w-3.5 h-3.5" />{submitting ? "Sending…" : "Comment"}
                       </Button>
                     </div>
                   </div>
@@ -229,88 +216,75 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             </Card>
           </div>
 
-          {/* ── Sidebar ── */}
+          {/* Sidebar */}
           <div className="space-y-4">
-            {/* Client Info */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  CLIENT
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border-strong)" }}>
-                    {TICKET.client.name.split(" ").map((n) => n[0]).join("")}
+            {ticket.client && (
+              <Card>
+                <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>CLIENT</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border-strong)" }}>
+                      {getInitials(ticket.client.name)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{ticket.client.name}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{ticket.client.phone}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{TICKET.client.name}</p>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{TICKET.client.phone}</p>
-                  </div>
-                </div>
-                <div className="text-xs space-y-1.5 pt-1" style={{ borderTop: "1px solid var(--border)" }}>
-                  <div className="flex justify-between">
-                    <span style={{ color: "var(--text-muted)" }}>Email</span>
-                    <span style={{ color: "var(--text-secondary)" }}>{TICKET.client.email}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Property */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>PROPERTY</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-start gap-2">
-                  <Building2 className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--gold-500)" }} />
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{TICKET.property.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Unit {TICKET.property.unit} · {TICKET.property.city}</p>
+            {ticket.property && (
+              <Card>
+                <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>PROPERTY</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="flex items-start gap-2">
+                    <Building2 className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--gold-500)" }} />
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{ticket.property.name}</p>
+                      {(ticket.property.unit || ticket.property.city) && (
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                          {[ticket.property.unit && `Unit ${ticket.property.unit}`, ticket.property.city].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Assignment */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ASSIGNMENT</CardTitle>
-              </CardHeader>
+              <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ASSIGNMENT</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span style={{ color: "var(--text-muted)" }}>Assigned to</span>
-                  <div className="flex items-center gap-1.5">
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[9px]">{TICKET.assignedTo.initials}</AvatarFallback>
-                    </Avatar>
-                    <span style={{ color: "var(--text-primary)" }}>{TICKET.assignedTo.name}</span>
-                  </div>
+                  <span style={{ color: "var(--text-primary)" }}>{ticket.assigned_to?.name ?? "Unassigned"}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span style={{ color: "var(--text-muted)" }}>Created by</span>
-                  <span style={{ color: "var(--text-secondary)" }}>{TICKET.createdBy.name}</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{ticket.created_by?.name ?? "—"}</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Timeline */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>TIMELINE</CardTitle>
-              </CardHeader>
+              <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>TIMELINE</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-xs">
-                {[
-                  { label: "Created", value: formatDateTime(TICKET.createdAt) },
-                  { label: "Due Date", value: formatDateTime(TICKET.dueDate), warning: TICKET.dueDate < new Date() },
-                  { label: "Last Update", value: formatRelativeTime(TICKET.comments.at(-1)?.createdAt) },
-                ].map(({ label, value, warning }) => (
-                  <div key={label} className="flex justify-between">
-                    <span style={{ color: "var(--text-muted)" }}>{label}</span>
-                    <span style={{ color: warning ? "var(--danger)" : "var(--text-secondary)" }}>{value}</span>
+                <div className="flex justify-between">
+                  <span style={{ color: "var(--text-muted)" }}>Created</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{formatDateTime(ticket.created_at)}</span>
+                </div>
+                {ticket.due_date && (
+                  <div className="flex justify-between">
+                    <span style={{ color: "var(--text-muted)" }}>Due Date</span>
+                    <span style={{ color: new Date(ticket.due_date) < new Date() ? "var(--danger)" : "var(--text-secondary)" }}>{formatDateTime(ticket.due_date)}</span>
                   </div>
-                ))}
+                )}
+                <div className="flex justify-between">
+                  <span style={{ color: "var(--text-muted)" }}>Last Update</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{formatRelativeTime(ticket.updated_at)}</span>
+                </div>
               </CardContent>
             </Card>
           </div>
