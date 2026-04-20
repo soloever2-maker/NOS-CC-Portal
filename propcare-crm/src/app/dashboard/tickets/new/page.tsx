@@ -82,7 +82,7 @@ export default function NewTicketPage() {
                 <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>PROJECT</CardTitle></CardHeader>
                 <CardContent>
                   <Select value={form.project} onValueChange={v => set("project", v)}>
-                    <SelectTrigger><SelectValue placeholder="اختر المشروع…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select project…" /></SelectTrigger>
                     <SelectContent>
                       {NOS_PROJECTS.map((p) => (
                         <SelectItem key={p} value={p}>{p}</SelectItem>
