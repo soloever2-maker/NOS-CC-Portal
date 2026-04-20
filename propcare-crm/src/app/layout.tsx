@@ -17,11 +17,11 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: { default: "PropCare CRM", template: "%s | PropCare CRM" },
+  title: { default: "Nations of Sky CRM", template: "%s | Nations of Sky CRM" },
   description: "Premium Real Estate Customer Care Management System",
   keywords: ["real estate", "CRM", "customer care", "property management"],
-  authors: [{ name: "PropCare" }],
-  creator: "PropCare CRM",
+  authors: [{ name: "Nations of Sky" }],
+  creator: "Nations of Sky CRM",
   icons: { icon: "/favicon.ico" },
 };
 
