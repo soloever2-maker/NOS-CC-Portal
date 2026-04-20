@@ -11,6 +11,7 @@ import { Textarea, Label } from "@/components/ui/form-elements";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS } from "@/types";
+import { NOS_PROJECTS } from "@/lib/constants";
 
 export default function NewTicketPage() {
   const router = useRouter();
@@ -18,7 +19,10 @@ export default function NewTicketPage() {
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
-  const [form, setForm] = useState({ title: "", description: "", priority: "MEDIUM", category: "OTHER", status: "OPEN", clientId: "", propertyId: "", assignedToId: "", dueDate: "", tags: "" });
+  const [form, setForm] = useState({
+    title: "", description: "", priority: "MEDIUM", category: "OTHER",
+    status: "OPEN", project: "", clientId: "", propertyId: "", dueDate: "", tags: "",
+  });
   const set = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
 
   useEffect(() => {
@@ -68,11 +72,26 @@ export default function NewTicketPage() {
                     </div>
                     <div><Label className="mb-1.5 block">Due Date</Label><Input type="datetime-local" value={form.dueDate} onChange={e => set("dueDate", e.target.value)} /></div>
                   </div>
-                  <div><Label className="mb-1.5 block">Tags</Label><Input placeholder="urgent, vip-client, repeat-issue" value={form.tags} onChange={e => set("tags", e.target.value)} /></div>
+                  <div><Label className="mb-1.5 block">Tags</Label><Input placeholder="urgent, vip-client…" value={form.tags} onChange={e => set("tags", e.target.value)} /></div>
                 </CardContent>
               </Card>
             </div>
+
             <div className="space-y-4">
+              <Card>
+                <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>PROJECT</CardTitle></CardHeader>
+                <CardContent>
+                  <Select value={form.project} onValueChange={v => set("project", v)}>
+                    <SelectTrigger><SelectValue placeholder="اختر المشروع…" /></SelectTrigger>
+                    <SelectContent>
+                      {NOS_PROJECTS.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>STATUS & PRIORITY</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
@@ -94,6 +113,7 @@ export default function NewTicketPage() {
                   </div>
                 </CardContent>
               </Card>
+
               <Card>
                 <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ASSIGNMENT</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
@@ -111,6 +131,7 @@ export default function NewTicketPage() {
                   </div>
                 </CardContent>
               </Card>
+
               <div className="space-y-2">
                 <Button type="submit" className="w-full" loading={loading}><Save className="w-4 h-4" />{loading ? "Creating…" : "Create Ticket"}</Button>
                 <Button type="button" variant="secondary" className="w-full" asChild><Link href="/dashboard/tickets">Cancel</Link></Button>
