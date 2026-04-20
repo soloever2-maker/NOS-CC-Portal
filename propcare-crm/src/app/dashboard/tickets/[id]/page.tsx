@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Edit, Clock, User, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle, Star } from "lucide-react";import { Topbar } from "@/components/layout/topbar";
+import { ArrowLeft, Edit, Clock, User, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle } from "lucide-react";
+import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-elements";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -32,7 +33,7 @@ interface Ticket {
   id: string; code: string; title: string; description: string;
   status: TicketStatus; priority: TicketPriority; category: string;
   project?: string; tags: string[]; due_date?: string;
-  created_at: string; updated_at: string; resolved_at?: string | null; source?: string | null;
+  created_at: string; updated_at: string; resolved_at?: string | null; source?: string | null; sla_hours?: number | null;
   client: { id: string; name: string; phone: string; email?: string } | null;
   property: { id: string; name: string; unit?: string; city?: string } | null;
   assigned_to: { id: string; name: string } | null;
@@ -56,6 +57,8 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [assignedTo, setAssignedTo] = useState<{ id: string; name: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [slaHours, setSlaHours] = useState<number | null>(null);
+  const [slaSaving, setSlaSaving] = useState(false);
   const [csatScore, setCsatScore] = useState<number | null>(null);
   const [csatNotes, setCsatNotes] = useState("");
   const [csatSaving, setCsatSaving] = useState(false);
@@ -74,7 +77,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       created_by:users!tickets_created_by_id_fkey(id, name)
     `).eq("id", params.id).single()
       .then(({ data }) => {
-        if (data) { setTicket(data); setCurrentStatus(data.status); setAssignedTo(data.assigned_to ?? null); }
+        if (data) { setTicket(data); setCurrentStatus(data.status); setAssignedTo(data.assigned_to ?? null); setSlaHours(data.sla_hours ?? null); }
         setLoading(false);
       });
 
@@ -146,6 +149,14 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       setCsatSaved(true);
       setTimeout(() => setCsatSaved(false), 3000);
     } finally { setCsatSaving(false); }
+  };
+
+  const handleSLA = async (hours: number) => {
+    setSlaSaving(true);
+    const supabase = createClient();
+    await supabase.from("tickets").update({ sla_hours: hours, updated_at: new Date().toISOString() }).eq("id", params.id);
+    setSlaHours(hours);
+    setSlaSaving(false);
   };
 
   const handleComment = async () => {
@@ -385,8 +396,35 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   createdAt={ticket.created_at}
                   status={currentStatus}
                   resolvedAt={ticket.resolved_at}
+                  slaHours={slaHours}
                   size="md"
                 />
+                {isAdmin && (
+                  <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                    <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Set SLA manually (hours)</p>
+                    <div className="flex gap-2">
+                      {[2, 4, 8, 24, 48].map(h => (
+                        <button key={h} type="button"
+                          onClick={() => handleSLA(h)}
+                          className="px-2 py-1 rounded-[6px] text-xs font-semibold transition-all"
+                          style={{
+                            background: slaHours === h ? "var(--gold-glow)" : "var(--black-700)",
+                            border: slaHours === h ? "1px solid var(--gold-500)" : "1px solid var(--black-500)",
+                            color: slaHours === h ? "var(--gold-400)" : "var(--text-muted)",
+                          }}>
+                          {h}h
+                        </button>
+                      ))}
+                      <input
+                        type="number"
+                        placeholder="Custom"
+                        className="crm-input w-20 text-xs h-7 px-2"
+                        onBlur={e => { if (e.target.value) handleSLA(parseInt(e.target.value)); }}
+                      />
+                      {slaSaving && <div className="w-4 h-4 border border-t-[var(--gold-500)] rounded-full animate-spin self-center" />}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
