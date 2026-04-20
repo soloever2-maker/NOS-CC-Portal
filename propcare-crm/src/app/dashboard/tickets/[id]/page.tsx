@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, formatRelativeTime, getInitials } from "@/lib/utils";
 import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS, type TicketStatus, type TicketPriority } from "@/types";
 import { createClient } from "@/lib/supabase/client";
+import { SLAIndicator } from "@/components/ui/sla-indicator";
 
 const STATUS_BADGE: Record<TicketStatus, BadgeProps["variant"]> = {
   OPEN: "open", IN_PROGRESS: "in-progress", PENDING_CLIENT: "in-progress",
@@ -31,7 +32,7 @@ interface Ticket {
   id: string; code: string; title: string; description: string;
   status: TicketStatus; priority: TicketPriority; category: string;
   project?: string; tags: string[]; due_date?: string;
-  created_at: string; updated_at: string;
+  created_at: string; updated_at: string; resolved_at?: string | null; source?: string | null;
   client: { id: string; name: string; phone: string; email?: string } | null;
   property: { id: string; name: string; unit?: string; city?: string } | null;
   assigned_to: { id: string; name: string } | null;
@@ -265,6 +266,21 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   <span style={{ color: "var(--text-muted)" }}>Created by</span>
                   <span style={{ color: "var(--text-secondary)" }}>{ticket.created_by?.name ?? "—"}</span>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>SLA STATUS</CardTitle></CardHeader>
+              <CardContent>
+                <SLAIndicator
+                  ticketId={ticket.id}
+                  category={ticket.category}
+                  source={ticket.source}
+                  createdAt={ticket.created_at}
+                  status={currentStatus}
+                  resolvedAt={ticket.resolved_at}
+                  size="md"
+                />
               </CardContent>
             </Card>
 
