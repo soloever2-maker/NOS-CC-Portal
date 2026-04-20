@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Edit, Clock, User, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle } from "lucide-react";
-import { Topbar } from "@/components/layout/topbar";
+import { ArrowLeft, Edit, Clock, User, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle, Star } from "lucide-react";import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-elements";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
