@@ -180,24 +180,29 @@ export default function SettingsPage() {
               <Card>
                 <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>NOTIFICATION PREFERENCES</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-2 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <span className="text-xs font-semibold col-span-1" style={{ color: "var(--text-muted)" }}>Event</span>
+                    <span className="text-xs font-semibold text-center" style={{ color: "var(--text-muted)" }}>Email</span>
+                    <span className="text-xs font-semibold text-center" style={{ color: "var(--text-muted)" }}>In-app</span>
+                  </div>
                   {[
                     { label: "Ticket assigned to me", desc: "When a ticket is assigned to you" },
                     { label: "Ticket status changes", desc: "When status changes on your tickets" },
                     { label: "New comments", desc: "When someone comments on your tickets" },
+                    { label: "Mentions", desc: "When someone mentions you in a comment" },
+                    { label: "Lead assigned", desc: "When a lead is assigned to you" },
                     { label: "System announcements", desc: "Important platform updates" },
                   ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <div key={i} className="grid grid-cols-3 items-center gap-2 py-2" style={{ borderBottom: "1px solid var(--border)" }}>
                       <div>
                         <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{item.label}</p>
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{item.desc}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{item.desc}</p>
                       </div>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" defaultChecked className="accent-[var(--gold-500)] w-3.5 h-3.5" />
-                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>Email</span>
-                      </label>
+                      <div className="flex justify-center"><input type="checkbox" defaultChecked className="accent-[var(--gold-500)] w-4 h-4 cursor-pointer" /></div>
+                      <div className="flex justify-center"><input type="checkbox" defaultChecked className="accent-[var(--gold-500)] w-4 h-4 cursor-pointer" /></div>
                     </div>
                   ))}
-                  <Button onClick={handleSaveProfile} loading={saving}><Save className="w-4 h-4" />Save</Button>
+                  <Button onClick={handleSaveProfile} loading={saving}><Save className="w-4 h-4" />Save Preferences</Button>
                 </CardContent>
               </Card>
             )}
