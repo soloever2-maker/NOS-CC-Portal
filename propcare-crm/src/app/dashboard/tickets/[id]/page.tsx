@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, formatRelativeTime, getInitials } from "@/lib/utils";
 import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS, type TicketStatus, type TicketPriority } from "@/types";
 import { createClient } from "@/lib/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SLAIndicator } from "@/components/ui/sla-indicator";
 
 const STATUS_BADGE: Record<TicketStatus, BadgeProps["variant"]> = {
@@ -52,6 +53,10 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [isInternal, setIsInternal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<TicketStatus>("OPEN");
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+  const [assignedTo, setAssignedTo] = useState<{ id: string; name: string } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -65,9 +70,24 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       created_by:users!tickets_created_by_id_fkey(id, name)
     `).eq("id", params.id).single()
       .then(({ data }) => {
-        if (data) { setTicket(data); setCurrentStatus(data.status); }
+        if (data) { setTicket(data); setCurrentStatus(data.status); setAssignedTo(data.assigned_to ?? null); }
         setLoading(false);
       });
+
+    // Check current user role + load agents
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("users").select("id, role").eq("supabase_id", user.id).single()
+        .then(({ data: profile }) => {
+          if (!profile) return;
+          const admin = ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(profile.role);
+          setIsAdmin(admin);
+          if (admin) {
+            supabase.from("users").select("id, name").eq("is_active", true)
+              .then(({ data }) => setAgents(data ?? []));
+          }
+        });
+    });
 
     // Fetch comments
     supabase.from("ticket_comments").select(`
@@ -80,6 +100,15 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     const supabase = createClient();
     await supabase.from("tickets").update({ status, updated_at: new Date().toISOString() }).eq("id", params.id);
     setCurrentStatus(status);
+  };
+
+  const handleAssign = async (agentId: string) => {
+    setAssigning(true);
+    const supabase = createClient();
+    const agent = agents.find(a => a.id === agentId) ?? null;
+    await supabase.from("tickets").update({ assigned_to_id: agentId, updated_at: new Date().toISOString() }).eq("id", params.id);
+    setAssignedTo(agent);
+    setAssigning(false);
   };
 
   const handleComment = async () => {
@@ -256,13 +285,53 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             )}
 
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ASSIGNMENT</CardTitle></CardHeader>
-              <CardContent className="space-y-3 text-sm">
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <span style={{ color: "var(--text-muted)" }}>Assigned to</span>
-                  <span style={{ color: "var(--text-primary)" }}>{ticket.assigned_to?.name ?? "Unassigned"}</span>
+                  <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ASSIGNMENT</CardTitle>
+                  {isAdmin && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>Admin</span>}
                 </div>
-                <div className="flex items-center justify-between">
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Current assignee */}
+                <div className="flex items-center justify-between text-sm">
+                  <span style={{ color: "var(--text-muted)" }}>Assigned to</span>
+                  {assignedTo ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
+                        {assignedTo.name.split(" ").map((n: string) => n[0]).join("").slice(0,2)}
+                      </div>
+                      <span style={{ color: "var(--text-primary)" }}>{assignedTo.name}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs italic" style={{ color: "var(--text-muted)" }}>Unassigned</span>
+                  )}
+                </div>
+
+                {/* Admin assign dropdown */}
+                {isAdmin && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Reassign to</p>
+                    <Select onValueChange={handleAssign} disabled={assigning}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={assigning ? "Assigning…" : "Select agent…"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agents.map(a => (
+                          <SelectItem key={a.id} value={a.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>
+                                {a.name.split(" ").map((n: string) => n[0]).join("").slice(0,2)}
+                              </div>
+                              {a.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-sm pt-1" style={{ borderTop: "1px solid var(--border)" }}>
                   <span style={{ color: "var(--text-muted)" }}>Created by</span>
                   <span style={{ color: "var(--text-secondary)" }}>{ticket.created_by?.name ?? "—"}</span>
                 </div>
