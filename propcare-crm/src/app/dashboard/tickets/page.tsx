@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { formatRelativeTime } from "@/lib/utils";
 import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS, type TicketStatus, type TicketPriority, type TicketCategory } from "@/types";
 import { NOS_PROJECTS } from "@/lib/constants";
+import { SLAIndicator } from "@/components/ui/sla-indicator";
 
 const STATUS_BADGE: Record<TicketStatus, BadgeProps["variant"]> = {
   OPEN: "open", IN_PROGRESS: "in-progress", PENDING_CLIENT: "in-progress",
@@ -28,7 +29,7 @@ interface Ticket {
   id: string; code: string; title: string; status: TicketStatus;
   priority: TicketPriority; category: TicketCategory; project?: string;
   client: { name: string } | null; property: { name: string } | null;
-  assigned_to: { name: string } | null; created_at: string; due_date: string | null;
+  source?: string | null; assigned_to: { name: string } | null; created_at: string; due_date: string | null; resolved_at?: string | null;
 }
 
 export default function TicketsPage() {
@@ -151,6 +152,7 @@ export default function TicketsPage() {
                     </td>
                     <td><Badge variant={STATUS_BADGE[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Badge></td>
                     <td><Badge variant={PRIORITY_BADGE[ticket.priority]}>{TICKET_PRIORITY_LABELS[ticket.priority]}</Badge></td>
+                    <td><SLAIndicator ticketId={ticket.id} category={ticket.category} source={ticket.source} createdAt={ticket.created_at} status={ticket.status} resolvedAt={ticket.resolved_at} /></td>
                     <td>
                       {ticket.assigned_to ? (
                         <div className="flex items-center gap-1.5">
