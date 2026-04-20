@@ -12,10 +12,10 @@ interface SLAIndicatorProps {
   createdAt: string;
   status: string;
   resolvedAt?: string | null;
+  slaHours?: number | null; // Manual override from ticket
   size?: "sm" | "md";
 }
 
-// Cache SLA settings to avoid re-fetching
 let slaCache: Record<string, number> | null = null;
 
 async function getSLAHours(category: string, source: string | null): Promise<number | null> {
@@ -28,32 +28,33 @@ async function getSLAHours(category: string, source: string | null): Promise<num
       slaCache[key] = s.hours;
     }
   }
-
-  // Source-specific SLA takes priority
   if (source && slaCache[`${category}:${source}`]) return slaCache[`${category}:${source}`] ?? null;
-  // Fall back to default
   return slaCache[`${category}:default`] ?? null;
 }
 
-export function SLAIndicator({ category, source, createdAt, status, resolvedAt, size = "sm" }: SLAIndicatorProps) {
+export function SLAIndicator({ category, source, createdAt, status, resolvedAt, slaHours, size = "sm" }: SLAIndicatorProps) {
   const [sla, setSLA] = useState<SLAInfo | null>(null);
 
   useEffect(() => {
+    // If ticket has manual SLA hours — use it directly
+    if (slaHours) {
+      setSLA(calculateSLA(createdAt, status, resolvedAt ?? null, slaHours));
+      return;
+    }
+    // Otherwise fetch from SLA settings
     getSLAHours(category, source ?? null).then(hours => {
       setSLA(calculateSLA(createdAt, status, resolvedAt ?? null, hours));
     });
-  }, [category, source, createdAt, status, resolvedAt]);
+  }, [category, source, createdAt, status, resolvedAt, slaHours]);
 
-  // Auto-refresh every minute for active tickets
   useEffect(() => {
     if (["RESOLVED", "CLOSED"].includes(status)) return;
-    const interval = setInterval(() => {
-      getSLAHours(category, source ?? null).then(hours => {
-        setSLA(calculateSLA(createdAt, status, resolvedAt ?? null, hours));
-      });
+    const interval = setInterval(async () => {
+      const hours = slaHours ?? await getSLAHours(category, source ?? null);
+      setSLA(calculateSLA(createdAt, status, resolvedAt ?? null, hours));
     }, 60000);
     return () => clearInterval(interval);
-  }, [category, source, createdAt, status, resolvedAt]);
+  }, [category, source, createdAt, status, resolvedAt, slaHours]);
 
   if (!sla || sla.status === "no_sla") return null;
 
@@ -68,13 +69,8 @@ export function SLAIndicator({ category, source, createdAt, status, resolvedAt, 
   if (size === "sm") {
     return (
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-semibold"
-        style={{
-          fontSize: 10,
-          background: sla.bg,
-          color: sla.color,
-          border: `1px solid ${sla.color}44`,
-        }}
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap"
+        style={{ fontSize: 10, background: sla.bg, color: sla.color, border: `1px solid ${sla.color}44` }}
         title={`SLA: ${sla.hoursAllowed}h allowed · ${sla.hoursElapsed}h elapsed`}
       >
         {icons[sla.status]}
@@ -91,17 +87,11 @@ export function SLAIndicator({ category, source, createdAt, status, resolvedAt, 
           <span className="text-sm font-semibold">{sla.label}</span>
         </div>
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-          {sla.percentUsed}% of {sla.hoursAllowed}h SLA
+          {sla.percentUsed}% of {sla.hoursAllowed}h
         </span>
       </div>
       <div className="h-1.5 rounded-full" style={{ background: "var(--black-600)" }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: `${sla.percentUsed}%`,
-            background: sla.color,
-          }}
-        />
+        <div className="h-full rounded-full transition-all" style={{ width: `${sla.percentUsed}%`, background: sla.color }} />
       </div>
       <div className="flex justify-between text-[11px]" style={{ color: "var(--text-muted)" }}>
         <span>Created: {new Date(createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
