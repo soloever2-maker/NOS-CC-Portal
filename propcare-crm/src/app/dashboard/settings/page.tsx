@@ -19,7 +19,7 @@ const SECTIONS = [
 export default function SettingsPage() {
   const [section, setSection] = useState("profile");
   const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState({ name: "Agent", email: "agent@propcare.demo", phone: "", department: "", bio: "" });
+  const [profile, setProfile] = useState({ name: "Agent", email: "agent@nos-crm.demo", phone: "", department: "", bio: "" });
 
   const handleSave = async () => {
     setSaving(true);
@@ -188,7 +188,7 @@ export default function SettingsPage() {
                       </button>
                     ))}
                   </div>
-                  <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>PropCare CRM is optimized for dark mode.</p>
+                  <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>Nations of Sky CRM is optimized for dark mode.</p>
                 </CardContent>
               </Card>
             )}
