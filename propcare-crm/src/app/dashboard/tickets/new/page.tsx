@@ -28,7 +28,7 @@ interface Property {
   id: string; name: string; unit?: string | null; project?: string | null; type: string;
 }
 interface ClientProperty {
-  property: Property;
+  property: Property | Property[];
 }
 
 // ── Smart Search Combobox ──
@@ -193,7 +193,7 @@ export default function NewTicketPage() {
       .select("property:properties(id, name, unit, project, type)")
       .eq("client_id", client.id)
       .then(({ data }) => {
-        const props = (data ?? []).map((cp: ClientProperty) => cp.property).filter(Boolean) as Property[];
+        const props = (data ?? []).map((cp: ClientProperty) => Array.isArray(cp.property) ? cp.property[0] : cp.property).filter(Boolean) as Property[];
         setClientProps(props);
         // Auto-select if only one property
         if (props.length === 1 && props[0]) setSelectedProp(props[0]);
