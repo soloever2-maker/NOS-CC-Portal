@@ -4,14 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, AlertCircle, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/form-elements";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/components/layout/theme-provider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -33,12 +35,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: "var(--black-950)" }}>
+    <div className="min-h-screen flex relative" style={{ backgroundColor: "var(--black-950)" }}>
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center rounded-[8px] transition-all"
+        style={{ background: "var(--black-800)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+        title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+      >
+        {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      </button>
+
       {/* Left Panel */}
-      <div className="hidden lg:flex flex-col justify-between w-[420px] shrink-0 p-10 relative overflow-hidden"
+      <div className="hidden lg:flex flex-col justify-between w-[400px] shrink-0 p-10 relative overflow-hidden"
         style={{ background: "linear-gradient(160deg, var(--black-900) 0%, var(--black-800) 100%)", borderRight: "0.5px solid var(--border)" }}>
         <div className="absolute top-[-100px] right-[-100px] w-[400px] h-[400px] rounded-full blur-[120px] pointer-events-none" style={{ background: "var(--gold-glow)" }} />
-        <div className="absolute bottom-[-80px] left-[-60px] w-[300px] h-[300px] rounded-full blur-[100px] pointer-events-none" style={{ background: "rgba(201,168,76,0.08)" }} />
+        <div className="absolute bottom-[-80px] left-[-60px] w-[300px] h-[300px] rounded-full blur-[100px] pointer-events-none" style={{ background: "rgba(201,168,76,0.06)" }} />
         <div className="flex items-center gap-3 relative z-10">
           <div className="w-10 h-10 rounded-[12px] overflow-hidden flex items-center justify-center" style={{ background: "var(--black-700)" }}>
             <Image src="/logo.png" alt="NOS" width={40} height={40} className="object-contain" />
@@ -58,7 +70,7 @@ export default function LoginPage() {
             </p>
           </div>
           <div className="space-y-3">
-            {["End-to-end ticket management","Client & property portfolio","Real-time team collaboration"].map((f) => (
+            {["End-to-end ticket management", "Client & property portfolio", "Real-time team collaboration"].map((f) => (
               <div key={f} className="flex items-center gap-2.5">
                 <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--gold-glow)", border: "1px solid var(--border-strong)" }}>
                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--gold-500)" }} />
@@ -83,7 +95,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2.5 p-3 rounded-[10px] mb-5 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--danger)" }}>
+            <div className="flex items-center gap-2.5 p-3 rounded-[8px] mb-5 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--danger)" }}>
               <AlertCircle className="w-4 h-4 shrink-0" />{error}
             </div>
           )}
@@ -96,7 +108,7 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <Label>Password</Label>
-                <Link href="/auth/forgot-password" className="text-xs" style={{ color: "var(--gold-500)" }}>Forgot password?</Link>
+                <Link href="/auth/forgot-password" className="text-xs transition-colors" style={{ color: "var(--gold-500)" }}>Forgot password?</Link>
               </div>
               <Input type={showPassword ? "text" : "password"} placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)}
                 startIcon={<Lock className="w-3.5 h-3.5" />}

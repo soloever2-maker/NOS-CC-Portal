@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  Plus, Search, Clock, User, Building2,
-  AlertCircle, MoreHorizontal, Eye, Trash2, ChevronDown, Filter,
+  Plus, Search, Clock, User, AlertCircle,
+  MoreHorizontal, Eye, Trash2, ChevronDown, Filter, AlignJustify,
 } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,8 @@ interface Ticket {
   id: string; code: string; title: string; status: TicketStatus;
   priority: TicketPriority; category: TicketCategory; project?: string;
   client: { name: string } | null; property: { name: string } | null;
-  source?: string | null; assigned_to: { name: string } | null; created_at: string; due_date: string | null; resolved_at?: string | null;
+  source?: string | null; assigned_to: { name: string } | null;
+  created_at: string; due_date: string | null; resolved_at?: string | null;
 }
 
 export default function TicketsPage() {
@@ -38,6 +39,18 @@ export default function TicketsPage() {
   const [search, setSearch] = useState("");
   const [activeStatus, setActiveStatus] = useState<string>("ALL");
   const [activeProject, setActiveProject] = useState<string>("ALL");
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("nos-compact-tickets");
+    if (saved === "true") setCompact(true);
+  }, []);
+
+  const toggleCompact = () => {
+    const next = !compact;
+    setCompact(next);
+    localStorage.setItem("nos-compact-tickets", String(next));
+  };
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -68,17 +81,16 @@ export default function TicketsPage() {
         actions={<Button size="sm" asChild><Link href="/dashboard/tickets/new"><Plus className="w-3.5 h-3.5" /> New Ticket</Link></Button>}
       />
 
-      <div className="flex-1 p-6 space-y-4">
-        {/* Search + Project Filter */}
-        <div className="flex flex-wrap gap-3">
-          <div className="max-w-sm w-full">
-            <Input placeholder="Search tickets…" startIcon={<Search className="w-3.5 h-3.5" />} value={search} onChange={(e) => setSearch(e.target.value)} className="h-9" />
+      <div className="flex-1 p-5 space-y-4">
+        {/* Search + Project Filter + Compact Toggle */}
+        <div className="flex flex-wrap gap-2.5 items-center">
+          <div className="max-w-xs w-full">
+            <Input placeholder="Search tickets…" startIcon={<Search className="w-3.5 h-3.5" />} value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
 
-          {/* Project Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
+              <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
                 <Filter className="w-3.5 h-3.5" />
                 {activeProject === "ALL" ? "All Projects" : activeProject}
                 <ChevronDown className="w-3 h-3" />
@@ -96,6 +108,21 @@ export default function TicketsPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Compact / Line mode toggle */}
+          <button
+            onClick={toggleCompact}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[7px] text-xs font-medium transition-all"
+            style={{
+              background: compact ? "var(--gold-glow)" : "transparent",
+              color: compact ? "var(--gold-500)" : "var(--text-muted)",
+              border: `0.5px solid ${compact ? "var(--gold-500)" : "var(--border)"}`,
+            }}
+            title={compact ? "Switch to normal view" : "Switch to compact/line view"}
+          >
+            <AlignJustify className="w-3.5 h-3.5" />
+            {compact ? "Compact" : "Normal"}
+          </button>
         </div>
 
         {/* Status Tabs */}
@@ -114,32 +141,34 @@ export default function TicketsPage() {
 
         {/* Table */}
         <div className="rounded-[12px] overflow-hidden" style={{ border: "0.5px solid var(--border)", background: "var(--black-800)" }}>
-          <table className="crm-table">
+          <table className={`crm-table${compact ? " compact" : ""}`}>
             <thead>
-              <tr><th>Ticket</th><th>Project</th><th>Client</th><th>Status</th><th>Priority</th><th>Assigned To</th><th>Created</th><th></th></tr>
+              <tr><th>Ticket</th><th>Project</th><th>Client</th><th>Status</th><th>Priority</th><th>SLA</th><th>Assigned To</th><th>Created</th><th></th></tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12"><div className="w-6 h-6 border-2 border-t-[var(--gold-500)] rounded-full animate-spin mx-auto" /></td></tr>
+                <tr><td colSpan={9} className="text-center py-10"><div className="w-5 h-5 border-2 border-t-[var(--gold-500)] rounded-full animate-spin mx-auto" /></td></tr>
               ) : tickets.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12" style={{ color: "var(--text-muted)" }}>
-                  <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <tr><td colSpan={9} className="text-center py-10" style={{ color: "var(--text-muted)" }}>
+                  <AlertCircle className="w-7 h-7 mx-auto mb-2 opacity-40" />
                   <p className="text-sm">{activeProject !== "ALL" ? `No tickets for ${activeProject}` : "No tickets found"}</p>
                 </td></tr>
               ) : tickets.map((ticket) => {
                 const isOverdue = ticket.due_date && new Date(ticket.due_date) < new Date() && !["RESOLVED","CLOSED"].includes(ticket.status);
                 return (
                   <tr key={ticket.id} className="group">
-                    <td style={{ maxWidth: 260 }}>
-                      <Link href={`/dashboard/tickets/${ticket.id}`} className="text-sm font-medium hover:text-[var(--gold-400)] transition-colors line-clamp-1 block" style={{ color: "var(--text-primary)" }}>{ticket.title}</Link>
-                      <div className="flex items-center gap-2 mt-0.5">
+                    <td style={{ maxWidth: 240 }}>
+                      <Link href={`/dashboard/tickets/${ticket.id}`} className="font-medium hover:text-[var(--gold-400)] transition-colors line-clamp-1 block" style={{ color: "var(--text-primary)" }}>
+                        {ticket.title}
+                      </Link>
+                      <div className="flex items-center gap-1.5 mt-0.5 row-subtitle">
                         <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{ticket.code}</span>
                         {isOverdue && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "var(--danger)" }}>OVERDUE</span>}
                       </div>
                     </td>
                     <td>
                       {ticket.project ? (
-                        <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: "var(--gold-glow)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ background: "var(--gold-glow)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>
                           {ticket.project}
                         </span>
                       ) : <span style={{ color: "var(--text-muted)" }}>—</span>}
@@ -147,7 +176,7 @@ export default function TicketsPage() {
                     <td>
                       <div className="flex items-center gap-1.5">
                         <User className="w-3 h-3" style={{ color: "var(--text-muted)" }} />
-                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{ticket.client?.name ?? "—"}</span>
+                        <span style={{ color: "var(--text-secondary)" }}>{ticket.client?.name ?? "—"}</span>
                       </div>
                     </td>
                     <td><Badge variant={STATUS_BADGE[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Badge></td>
@@ -156,18 +185,23 @@ export default function TicketsPage() {
                     <td>
                       {ticket.assigned_to ? (
                         <div className="flex items-center gap-1.5">
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
-                            {ticket.assigned_to.name.split(" ").map((n: string) => n[0]).join("")}
+                          <div className="avatar-sm w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
+                            {ticket.assigned_to.name.split(" ").map((n: string) => n[0]).join("").slice(0,2)}
                           </div>
-                          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{ticket.assigned_to.name}</span>
+                          <span style={{ color: "var(--text-secondary)" }}>{ticket.assigned_to.name}</span>
                         </div>
                       ) : <span className="text-xs italic" style={{ color: "var(--text-muted)" }}>Unassigned</span>}
                     </td>
-                    <td><div className="flex items-center gap-1" style={{ color: "var(--text-muted)" }}><Clock className="w-3 h-3" /><span className="text-xs">{formatRelativeTime(ticket.created_at)}</span></div></td>
+                    <td>
+                      <div className="flex items-center gap-1 whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                        <Clock className="w-3 h-3" />
+                        <span className="text-xs">{formatRelativeTime(ticket.created_at)}</span>
+                      </div>
+                    </td>
                     <td>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="w-7 h-7 rounded-[6px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--text-muted)" }}><MoreHorizontal className="w-4 h-4" /></button>
+                          <button className="w-6 h-6 rounded-[6px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--text-muted)" }}><MoreHorizontal className="w-3.5 h-3.5" /></button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild><Link href={`/dashboard/tickets/${ticket.id}`}><Eye className="w-4 h-4" /> View</Link></DropdownMenuItem>

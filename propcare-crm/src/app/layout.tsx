@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/layout/theme-provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,9 +24,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Nations of Sky" }],
   creator: "Nations of Sky CRM",
   icons: {
-    icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-    ],
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: "/icon-192.png",
   },
   manifest: "/manifest.json",
@@ -41,9 +40,28 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfairDisplay.variable} dark`}>
-      <body className={`${inter.className} antialiased`} style={{ backgroundColor: "var(--black-950)" }}>
-        {children}
+    <html
+      lang="en"
+      className={`${inter.variable} ${playfairDisplay.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Prevent flash of unstyled content on theme load */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('nos-theme') || 'dark';
+                var l = localStorage.getItem('nos-line-mode') === 'true';
+                document.documentElement.setAttribute('data-theme', t);
+                if (l) document.documentElement.classList.add('line-mode');
+              } catch(e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className={`${inter.className} antialiased`}>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Edit, Clock, User, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle, Star } from "lucide-react";
+import { ArrowLeft, Clock, User, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle, Star } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-elements";
@@ -14,6 +14,10 @@ import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, TICKET_CATEGORY_LABELS, t
 import { createClient } from "@/lib/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SLAIndicator } from "@/components/ui/sla-indicator";
+
+const SOURCE_LABELS: Record<string, string> = {
+  walk_in: "Walk-in", call_center: "Call Center", email: "Email",
+};
 
 const STATUS_BADGE: Record<TicketStatus, BadgeProps["variant"]> = {
   OPEN: "open", IN_PROGRESS: "in-progress", PENDING_CLIENT: "in-progress",
@@ -33,7 +37,8 @@ interface Ticket {
   id: string; code: string; title: string; description: string;
   status: TicketStatus; priority: TicketPriority; category: string;
   project?: string; tags: string[]; due_date?: string;
-  created_at: string; updated_at: string; resolved_at?: string | null; source?: string | null; sla_hours?: number | null;
+  created_at: string; updated_at: string; resolved_at?: string | null;
+  source?: string | null; sla_hours?: number | null;
   client: { id: string; name: string; phone: string; email?: string } | null;
   property: { id: string; name: string; unit?: string; city?: string } | null;
   assigned_to: { id: string; name: string } | null;
@@ -43,6 +48,10 @@ interface Ticket {
 interface Comment {
   id: string; content: string; is_internal: boolean; created_at: string;
   user: { name: string } | null;
+}
+
+interface SLASetting {
+  id: string; ticket_type: string; source: string | null; hours: number; is_active: boolean;
 }
 
 export default function TicketDetailPage({ params }: { params: { id: string } }) {
@@ -59,6 +68,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [assigning, setAssigning] = useState(false);
   const [slaHours, setSlaHours] = useState<number | null>(null);
   const [slaSaving, setSlaSaving] = useState(false);
+  const [slaSettings, setSlaSettings] = useState<SLASetting[]>([]);
   const [csatScore, setCsatScore] = useState<number | null>(null);
   const [csatNotes, setCsatNotes] = useState("");
   const [csatSaving, setCsatSaving] = useState(false);
@@ -68,7 +78,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   useEffect(() => {
     const supabase = createClient();
 
-    // Fetch ticket
     supabase.from("tickets").select(`
       *,
       client:clients(id, name, phone, email),
@@ -81,7 +90,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
         setLoading(false);
       });
 
-    // Load existing CSAT
     supabase.from("csat_scores").select("score, notes")
       .eq("ticket_id", params.id)
       .eq("month", new Date().getMonth() + 1)
@@ -89,7 +97,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       .single()
       .then(({ data }) => { if (data) { setExistingCsat(data); setCsatScore(data.score); setCsatNotes(data.notes ?? ""); } });
 
-    // Check current user role + load agents
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       supabase.from("users").select("id, role").eq("supabase_id", user.id).single()
@@ -100,14 +107,14 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
           if (admin) {
             supabase.from("users").select("id, name").eq("is_active", true)
               .then(({ data }) => setAgents(data ?? []));
+            supabase.from("sla_settings").select("*").eq("is_active", true).order("ticket_type")
+              .then(({ data }) => setSlaSettings(data ?? []));
           }
         });
     });
 
-    // Fetch comments
-    supabase.from("ticket_comments").select(`
-      *, user:users(name)
-    `).eq("ticket_id", params.id).order("created_at", { ascending: true })
+    supabase.from("ticket_comments").select(`*, user:users(name)`)
+      .eq("ticket_id", params.id).order("created_at", { ascending: true })
       .then(({ data }) => setComments(data ?? []));
   }, [params.id]);
 
@@ -135,7 +142,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       if (!user) return;
       const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
       if (!profile) return;
-
       await supabase.from("csat_scores").upsert({
         id: existingCsat ? undefined : crypto.randomUUID(),
         ticket_id: params.id,
@@ -168,7 +174,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       if (!user) return;
       const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
       if (!profile) return;
-
       const { data: newComment } = await supabase.from("ticket_comments").insert({
         id: crypto.randomUUID(),
         ticket_id: params.id,
@@ -177,7 +182,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
         is_internal: isInternal,
         attachments: [],
       }).select("*, user:users(name)").single();
-
       if (newComment) setComments(prev => [...prev, newComment]);
       setComment("");
     } finally { setSubmitting(false); }
@@ -187,7 +191,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     <div className="flex flex-col min-h-screen animate-fade-in">
       <Topbar title="Loading…" />
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-t-[var(--gold-500)] rounded-full animate-spin" />
+        <div className="w-7 h-7 border-2 border-t-[var(--gold-500)] rounded-full animate-spin" />
       </div>
     </div>
   );
@@ -205,29 +209,33 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     <div className="flex flex-col min-h-screen animate-fade-in">
       <Topbar title={ticket.code} subtitle={ticket.title}
         actions={
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" asChild><Link href="/dashboard/tickets"><ArrowLeft className="w-3.5 h-3.5" /> Back</Link></Button>
-          </div>
+          <Button variant="ghost" size="sm" asChild><Link href="/dashboard/tickets"><ArrowLeft className="w-3.5 h-3.5" /> Back</Link></Button>
         }
       />
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 max-w-7xl">
-          {/* Main */}
+      <div className="flex-1 p-5">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 max-w-7xl">
+
+          {/* ── Main ── */}
           <div className="xl:col-span-2 space-y-4">
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-5">
                 <div className="flex flex-wrap gap-2 mb-4">
                   <Badge variant={STATUS_BADGE[currentStatus]}>{TICKET_STATUS_LABELS[currentStatus]}</Badge>
                   <Badge variant={PRIORITY_BADGE[ticket.priority]}>{TICKET_PRIORITY_LABELS[ticket.priority]}</Badge>
                   <Badge variant="outline">{TICKET_CATEGORY_LABELS[ticket.category as keyof typeof TICKET_CATEGORY_LABELS] ?? ticket.category}</Badge>
                   {ticket.project && <Badge variant="gold">{ticket.project}</Badge>}
+                  {ticket.source && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ background: "var(--black-600)", color: "var(--text-muted)" }}>
+                      {SOURCE_LABELS[ticket.source] ?? ticket.source}
+                    </span>
+                  )}
                   {(ticket.tags ?? []).map(tag => (
                     <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ background: "var(--black-600)", color: "var(--text-muted)" }}>
                       <Tag className="w-2.5 h-2.5" />{tag}
                     </span>
                   ))}
                 </div>
-                <h2 className="text-xl font-semibold mb-4" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>{ticket.title}</h2>
+                <h2 className="text-xl font-semibold mb-3" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>{ticket.title}</h2>
                 <div className="text-sm whitespace-pre-line leading-relaxed" style={{ color: "var(--text-secondary)" }}>{ticket.description}</div>
               </CardContent>
             </Card>
@@ -246,19 +254,19 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             {/* Comments */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ACTIVITY & COMMENTS ({comments.length})</CardTitle>
+                <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>ACTIVITY & COMMENTS ({comments.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {comments.length === 0 && (
-                  <div className="text-center py-6" style={{ color: "var(--text-muted)" }}>
+                  <div className="text-center py-5" style={{ color: "var(--text-muted)" }}>
                     <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
                     <p className="text-sm">No comments yet</p>
                   </div>
                 )}
                 {comments.map((c) => (
                   <div key={c.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-                      <AvatarFallback className="text-xs">{c.user?.name ? getInitials(c.user.name) : "?"}</AvatarFallback>
+                    <Avatar className="h-7 w-7 shrink-0 mt-0.5">
+                      <AvatarFallback className="text-[10px]">{c.user?.name ? getInitials(c.user.name) : "?"}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="rounded-[10px] p-3" style={{ background: c.is_internal ? "rgba(245,158,11,0.05)" : "var(--black-700)", border: c.is_internal ? "1px dashed rgba(245,158,11,0.3)" : "none" }}>
@@ -275,9 +283,8 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   </div>
                 ))}
 
-                {/* Add comment */}
                 <div className="flex gap-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                  <Avatar className="h-8 w-8 shrink-0 mt-1"><AvatarFallback className="text-xs">ME</AvatarFallback></Avatar>
+                  <Avatar className="h-7 w-7 shrink-0 mt-1"><AvatarFallback className="text-[10px]">ME</AvatarFallback></Avatar>
                   <div className="flex-1 space-y-2">
                     <Textarea placeholder="Write a comment…" value={comment} onChange={e => setComment(e.target.value)} rows={3} />
                     <div className="flex items-center justify-between">
@@ -294,14 +301,15 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             </Card>
           </div>
 
-          {/* Sidebar */}
+          {/* ── Sidebar ── */}
           <div className="space-y-4">
+
             {ticket.client && (
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>CLIENT</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
+                <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>CLIENT</CardTitle></CardHeader>
+                <CardContent>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border-strong)" }}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border-strong)" }}>
                       {getInitials(ticket.client.name)}
                     </div>
                     <div>
@@ -315,7 +323,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
             {ticket.property && (
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>PROPERTY</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>PROPERTY</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex items-start gap-2">
                     <Building2 className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--gold-500)" }} />
@@ -332,15 +340,15 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               </Card>
             )}
 
+            {/* Assignment */}
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ASSIGNMENT</CardTitle>
+                  <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>ASSIGNMENT</CardTitle>
                   {isAdmin && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>Admin</span>}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Current assignee */}
                 <div className="flex items-center justify-between text-sm">
                   <span style={{ color: "var(--text-muted)" }}>Assigned to</span>
                   {assignedTo ? (
@@ -354,8 +362,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     <span className="text-xs italic" style={{ color: "var(--text-muted)" }}>Unassigned</span>
                   )}
                 </div>
-
-                {/* Admin assign dropdown */}
                 {isAdmin && (
                   <div className="space-y-1.5">
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>Reassign to</p>
@@ -378,16 +384,25 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     </Select>
                   </div>
                 )}
-
-                <div className="flex items-center justify-between text-sm pt-1" style={{ borderTop: "1px solid var(--border)" }}>
+                <div className="flex items-center justify-between text-sm pt-2" style={{ borderTop: "1px solid var(--border)" }}>
                   <span style={{ color: "var(--text-muted)" }}>Created by</span>
                   <span style={{ color: "var(--text-secondary)" }}>{ticket.created_by?.name ?? "—"}</span>
                 </div>
               </CardContent>
             </Card>
 
+            {/* SLA */}
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>SLA STATUS</CardTitle></CardHeader>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>SLA STATUS</CardTitle>
+                  {slaHours && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>
+                      {slaHours}h set
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
               <CardContent>
                 <SLAIndicator
                   ticketId={ticket.id}
@@ -399,41 +414,54 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   slaHours={slaHours}
                   size="md"
                 />
+
                 {isAdmin && (
-                  <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-                    <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Set SLA manually (hours)</p>
-                    <div className="flex gap-2">
-                      {[2, 4, 8, 24, 48].map(h => (
-                        <button key={h} type="button"
-                          onClick={() => handleSLA(h)}
-                          className="px-2 py-1 rounded-[6px] text-xs font-semibold transition-all"
-                          style={{
-                            background: slaHours === h ? "var(--gold-glow)" : "var(--black-700)",
-                            border: slaHours === h ? "1px solid var(--gold-500)" : "1px solid var(--black-500)",
-                            color: slaHours === h ? "var(--gold-400)" : "var(--text-muted)",
-                          }}>
-                          {h}h
-                        </button>
-                      ))}
+                  <div className="mt-3 pt-3 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+                    <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Set SLA</p>
+
+                    {/* Presets from SLA Settings */}
+                    {slaSettings.length > 0 && (
+                      <Select onValueChange={(v) => handleSLA(parseInt(v))}>
+                        <SelectTrigger className="h-8 text-xs w-full">
+                          <SelectValue placeholder="Choose preset…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {slaSettings.map(s => (
+                            <SelectItem key={s.id} value={String(s.hours)}>
+                              <div className="flex items-center gap-3">
+                                <span>{TICKET_CATEGORY_LABELS[s.ticket_type as keyof typeof TICKET_CATEGORY_LABELS] ?? s.ticket_type}</span>
+                                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                                  {s.source ? SOURCE_LABELS[s.source] : "All"} · {s.hours}h
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    {/* Custom hours */}
+                    <div className="flex items-center gap-2">
                       <input
                         type="number"
-                        placeholder="Custom"
-                        className="crm-input w-20 text-xs h-7 px-2"
-                        onBlur={e => { if (e.target.value) handleSLA(parseInt(e.target.value)); }}
+                        placeholder="Custom hours…"
+                        className="crm-input flex-1 text-xs h-8 px-2.5"
+                        min={1}
+                        onBlur={e => { if (e.target.value) { handleSLA(parseInt(e.target.value)); e.target.value = ""; } }}
                       />
-                      {slaSaving && <div className="w-4 h-4 border border-t-[var(--gold-500)] rounded-full animate-spin self-center" />}
+                      {slaSaving && <div className="w-4 h-4 border border-t-[var(--gold-500)] rounded-full animate-spin shrink-0" />}
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* CSAT Card - Admin only, show when ticket is Resolved or Closed */}
+            {/* CSAT */}
             {isAdmin && ["RESOLVED", "CLOSED"].includes(currentStatus) && (
               <Card>
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>CSAT SCORE</CardTitle>
+                    <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>CSAT SCORE</CardTitle>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>Admin</span>
                   </div>
                 </CardHeader>
@@ -451,7 +479,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     <div className="flex gap-1.5">
                       {[1, 2, 3, 4, 5].map(s => (
                         <button key={s} type="button" onClick={() => setCsatScore(s)}
-                          className="w-9 h-9 rounded-[8px] flex items-center justify-center transition-all text-sm font-bold"
+                          className="w-9 h-9 rounded-[8px] flex items-center justify-center transition-all"
                           style={{
                             background: csatScore && csatScore >= s ? "var(--gold-glow)" : "var(--black-700)",
                             border: csatScore && csatScore >= s ? "1px solid var(--gold-500)" : "1px solid var(--black-500)",
@@ -472,7 +500,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     <textarea
                       value={csatNotes}
                       onChange={e => setCsatNotes(e.target.value)}
-                      placeholder="Any notes about the customer satisfaction…"
+                      placeholder="Any notes about customer satisfaction…"
                       rows={2}
                       className="crm-input w-full text-xs resize-none"
                     />
@@ -492,8 +520,9 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               </Card>
             )}
 
+            {/* Timeline */}
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>TIMELINE</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>TIMELINE</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span style={{ color: "var(--text-muted)" }}>Created</span>
