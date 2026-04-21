@@ -23,9 +23,9 @@ export async function GET(req: NextRequest) {
       const key = s.source ? `${s.ticket_type}:${s.source}` : `${s.ticket_type}:default`;
       slaMap[key] = s.hours;
     }
-    const getSlaHours = (category: string, source: string | null, manualHours: number | null): number | null => {
+    const getSlaHours = (category: string, source: string | null, manualHours: number | null): number | null | undefined => {
       if (manualHours) return manualHours;
-      if (source && slaMap[`${category}:${source}`]) return slaMap[`${category}:${source}`];
+      if (source && slaMap[`${category}:${source}`]) return slaMap[`${category}:${source}`] ?? null;
       return slaMap[`${category}:default`] ?? null;
     };
 
