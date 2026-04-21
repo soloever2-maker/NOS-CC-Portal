@@ -266,7 +266,7 @@ function LinkUnitPanel({
       {/* Relation */}
       <div className="flex gap-2">
         {RELATIONS.map(r => {
-          const s = RELATION_STYLE[r];
+          const s = RELATION_STYLE[r] ?? { bg: "rgba(100,100,100,0.1)", color: "var(--text-muted)" };
           return (
             <button key={r} onClick={() => setRelation(r)}
               className="flex-1 py-1.5 rounded-[8px] text-xs font-semibold capitalize transition-all"
