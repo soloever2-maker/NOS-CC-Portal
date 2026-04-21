@@ -83,7 +83,7 @@ function PropertyCard({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading,   setUploading]   = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const rel = RELATION_STYLE[prop.relation] ?? RELATION_STYLE.prospect;
+  const rel = RELATION_STYLE[prop.relation] ?? { bg: 'rgba(100,100,100,0.1)', color: 'var(--text-muted)' };
 
   useEffect(() => { loadFiles(); }, []); // eslint-disable-line
 
