@@ -165,11 +165,10 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
       if (!profile) return;
       await supabase.from("csat_scores").upsert({
-        id: existingCsat ? undefined : crypto.randomUUID(),
         ticket_id: params.id, agent_id: assignedTo?.id ?? profile.id,
         score: csatScore, notes: csatNotes,
         month: new Date().getMonth() + 1, year: new Date().getFullYear(),
-      });
+      }, { onConflict: "ticket_id" });
       setExistingCsat({ score: csatScore, notes: csatNotes });
       setCsatSaved(true);
       setTimeout(() => setCsatSaved(false), 3000);
