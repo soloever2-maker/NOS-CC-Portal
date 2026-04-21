@@ -157,7 +157,7 @@ export default function CSATPage() {
             </CardHeader>
             <CardContent className="space-y-2.5">
               {[5,4,3,2,1].map(s => {
-                const count = dist[s];
+                const count = dist[s] ?? 0;
                 const pct = entries.length > 0 ? Math.round((count / entries.length) * 100) : 0;
                 return (
                   <div key={s} className="flex items-center gap-2">
