@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShieldCheck, Save, Plus, Trash2, Clock } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,17 +19,16 @@ const SOURCES = [
 ];
 
 interface SLASetting {
-  id: string;
-  ticket_type: string;
-  source: string | null;
-  hours: number;
-  is_active: boolean;
+  id: string; ticket_type: string; source: string | null; hours: number; is_active: boolean;
 }
 
 export default function SLASettingsPage() {
   const [settings, setSettings] = useState<SLASetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [newSLA, setNewSLA] = useState({ ticket_type: "MAINTENANCE", source: "all", hours: 24 });
 
   useEffect(() => {
@@ -39,9 +38,10 @@ export default function SLASettingsPage() {
   }, []);
 
   const updateHours = async (id: string, hours: number) => {
+    if (!hours || hours < 1) return;
     setSaving(id);
     const supabase = createClient();
-    await supabase.from("sla_settings").update({ hours, updated_at: new Date().toISOString() }).eq("id", id);
+    await supabase.from("sla_settings").update({ hours }).eq("id", id);
     setSettings(prev => prev.map(s => s.id === id ? { ...s, hours } : s));
     setSaving(null);
   };
@@ -59,14 +59,34 @@ export default function SLASettingsPage() {
   };
 
   const addSLA = async () => {
-    const supabase = createClient();
-    const { data } = await supabase.from("sla_settings").insert({
-      ticket_type: newSLA.ticket_type,
-      source: newSLA.source === "all" ? null : newSLA.source || null,
-      hours: newSLA.hours,
-      is_active: true,
-    }).select().single();
-    if (data) { setSettings(prev => [...prev, data]); setNewSLA({ ticket_type: "MAINTENANCE", source: "", hours: 24 }); }
+    setError(null);
+    setAdding(true);
+    try {
+      const supabase = createClient();
+      const { data, error: insertError } = await supabase
+        .from("sla_settings")
+        .insert({
+          id: crypto.randomUUID(),
+          ticket_type: newSLA.ticket_type,
+          source: newSLA.source === "all" ? null : newSLA.source,
+          hours: newSLA.hours,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      if (data) {
+        setSettings(prev => [...prev, data]);
+        setNewSLA({ ticket_type: "MAINTENANCE", source: "all", hours: 24 });
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 2500);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add SLA rule");
+    } finally {
+      setAdding(false);
+    }
   };
 
   const getSLAColor = (hours: number) => {
@@ -80,7 +100,6 @@ export default function SLASettingsPage() {
       <Topbar title="SLA Settings" subtitle="Configure service level agreement timeframes" />
       <div className="flex-1 p-6 space-y-6 max-w-4xl">
 
-        {/* Info */}
         <div className="p-4 rounded-[10px]" style={{ background: "rgba(201,168,76,0.05)", border: "1px solid var(--border-strong)" }}>
           <div className="flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "var(--gold-500)" }} />
@@ -96,11 +115,18 @@ export default function SLASettingsPage() {
         {/* Existing SLAs */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>CURRENT SLA RULES</CardTitle>
+            <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>
+              CURRENT SLA RULES {settings.length > 0 && `(${settings.length})`}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
               <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-t-[var(--gold-500)] rounded-full animate-spin" /></div>
+            ) : settings.length === 0 ? (
+              <div className="text-center py-10" style={{ color: "var(--text-muted)" }}>
+                <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No SLA rules yet — add one below</p>
+              </div>
             ) : (
               <table className="crm-table">
                 <thead>
@@ -121,11 +147,11 @@ export default function SLASettingsPage() {
                       </td>
                       <td>
                         <div className="flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5" style={{ color: getSLAColor(s.hours) }} />
+                          <Clock className="w-3.5 h-3.5 shrink-0" style={{ color: getSLAColor(s.hours) }} />
                           <Input
                             type="number"
-                            value={s.hours}
-                            onChange={e => updateHours(s.id, parseInt(e.target.value))}
+                            defaultValue={s.hours}
+                            onBlur={e => updateHours(s.id, parseInt(e.target.value))}
                             className="w-20 h-7 text-xs"
                             min={1}
                           />
@@ -136,7 +162,7 @@ export default function SLASettingsPage() {
                       <td>
                         <button
                           onClick={() => toggleActive(s.id, !s.is_active)}
-                          className="text-xs font-semibold px-2 py-1 rounded-full transition-all"
+                          className="text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
                           style={{
                             background: s.is_active ? "rgba(34,197,94,0.1)" : "rgba(96,96,96,0.1)",
                             color: s.is_active ? "var(--success)" : "var(--text-muted)",
@@ -162,31 +188,50 @@ export default function SLASettingsPage() {
         {/* Add New SLA */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>ADD NEW SLA RULE</CardTitle>
+            <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>ADD NEW SLA RULE</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4 items-end">
+          <CardContent className="space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-[8px] text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--danger)" }}>
+                <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+              </div>
+            )}
+            {success && (
+              <div className="flex items-center gap-2 p-3 rounded-[8px] text-sm" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "var(--success)" }}>
+                <CheckCircle className="w-4 h-4 shrink-0" /> SLA rule added successfully
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <Label className="mb-1.5 block">Category</Label>
                 <Select value={newSLA.ticket_type} onValueChange={v => setNewSLA(p => ({ ...p, ticket_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(TICKET_CATEGORY_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {Object.entries(TICKET_CATEGORY_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="mb-1.5 block">Source (Optional)</Label>
                 <Select value={newSLA.source} onValueChange={v => setNewSLA(p => ({ ...p, source: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{SOURCES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {SOURCES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="mb-1.5 block">Hours</Label>
-                <Input type="number" value={newSLA.hours} onChange={e => setNewSLA(p => ({ ...p, hours: parseInt(e.target.value) }))} min={1} />
+                <Input
+                  type="number"
+                  value={newSLA.hours}
+                  onChange={e => setNewSLA(p => ({ ...p, hours: parseInt(e.target.value) || 24 }))}
+                  min={1}
+                />
               </div>
             </div>
-            <Button className="mt-4" onClick={addSLA}>
-              <Plus className="w-4 h-4" /> Add SLA Rule
+            <Button onClick={addSLA} loading={adding} disabled={adding}>
+              <Plus className="w-4 h-4" /> {adding ? "Adding…" : "Add SLA Rule"}
             </Button>
           </CardContent>
         </Card>
