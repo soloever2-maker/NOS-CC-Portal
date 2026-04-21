@@ -14,7 +14,7 @@ type InteractionWithRelations = {
   id: string; type: InteractionType; summary: string; details?: string | null;
   duration?: number | null; created_at: string;
   client: { id: string; name: string; phone: string } | null;
-  user: { name: string } | null;
+  user: { name: string } | { name: string }[] | null;
 };
 
 const TYPE_ICONS: Record<InteractionType, React.ElementType> = {
