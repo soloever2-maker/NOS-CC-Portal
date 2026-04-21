@@ -67,6 +67,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [assignedTo, setAssignedTo] = useState<{ id: string; name: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [assignKey, setAssignKey] = useState(0);
   const [slaHours, setSlaHours] = useState<number | null>(null);
   const [slaSaving, setSlaSaving] = useState(false);
   const [slaSettings, setSlaSettings] = useState<SLASetting[]>([]);
@@ -139,6 +140,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     const supabase = createClient();
     const agent = agents.find(a => a.id === agentId) ?? null;
     await supabase.from("tickets").update({ assigned_to_id: agentId, updated_at: new Date().toISOString() }).eq("id", params.id);
+    setAssignKey(k => k + 1);
     // Send in-app notification
     if (ticket && myUserId) {
       await supabase.from("notifications").insert({
@@ -400,7 +402,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                 {isAdmin && (
                   <div className="space-y-1.5">
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>Reassign</p>
-                    <Select onValueChange={handleAssign} disabled={assigning}>
+                    <Select key={assignKey} onValueChange={handleAssign} disabled={assigning}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder={assigning ? "Assigning…" : "Select agent…"} />
                       </SelectTrigger>
@@ -440,7 +442,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   <div className="mt-3 pt-3 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
                     <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Set SLA</p>
                     {slaSettings.length > 0 && (
-                      <Select onValueChange={(v) => handleSLA(parseInt(v))}>
+                      <Select key={slaHours ?? "sla"} onValueChange={(v) => handleSLA(parseInt(v))}>
                         <SelectTrigger className="h-8 text-xs w-full"><SelectValue placeholder="Choose preset…" /></SelectTrigger>
                         <SelectContent>
                           {slaSettings.map(s => (
