@@ -9,18 +9,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search");
 
-    let query = supabase
-      .from("clients")
-      .select("*")
-      .order("created_at", { ascending: false });
-
+    let query = supabase.from("clients").select("*").order("created_at", { ascending: false });
     if (search) {
-      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,code.ilike.%${search}%`);
+      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,phone2.ilike.%${search}%,email.ilike.%${search}%,code.ilike.%${search}%`);
     }
 
     const { data, error } = await query;
     if (error) throw error;
-
     return NextResponse.json({ success: true, data });
   } catch (err) {
     console.error(err);
@@ -37,24 +32,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const code = generateCode("CLT");
 
-    const { data, error } = await supabase
-      .from("clients")
-      .insert({
-        id: crypto.randomUUID(),
-        code,
-        name: body.name,
-        email: body.email || null,
-        phone: body.phone,
-        whatsapp: body.whatsapp || null,
-        nationality: body.nationality || null,
-        id_number: body.idNumber || null,
-        address: body.address || null,
-        city: body.city || null,
-        notes: body.notes || null,
-        tags: body.tags ?? [],
-      })
-      .select()
-      .single();
+    const { data, error } = await supabase.from("clients").insert({
+      id: crypto.randomUUID(), code,
+      name: body.name,
+      email: body.email || null,
+      phone: body.phone,
+      phone2: body.phone2 || null,
+      whatsapp: body.whatsapp || null,
+      referral_number: body.referralNumber || null,
+      nationality: body.nationality || null,
+      id_number: body.idNumber || null,
+      address: body.address || null,
+      city: body.city || null,
+      notes: body.notes || null,
+      tags: body.tags ?? [],
+    }).select().single();
 
     if (error) throw error;
     return NextResponse.json({ success: true, data });
