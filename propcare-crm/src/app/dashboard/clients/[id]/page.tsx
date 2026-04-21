@@ -22,7 +22,7 @@ interface TicketItem {
 }
 interface InteractionItem {
   id: string; type: InteractionType; summary: string; details?: string | null;
-  duration?: number | null; created_at: string; user: { name: string } | null;
+  duration?: number | null; created_at: string; user: { name: string } | { name: string }[] | null;
 }
 interface PropertyItem {
   id: string; name: string; unit?: string | null; project?: string | null;
@@ -257,7 +257,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{formatRelativeTime(i.created_at)}</p>
-                            {i.user && <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>by {i.user.name}</p>}
+                            {i.user && <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>by {Array.isArray(i.user) ? (i.user[0] as {name:string})?.name : (i.user as {name:string}).name}</p>}
                           </div>
                         </div>
                       ))}
