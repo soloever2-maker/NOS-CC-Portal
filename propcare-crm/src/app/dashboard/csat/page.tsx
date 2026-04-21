@@ -56,7 +56,7 @@ export default function CSATPage() {
   // Aggregate stats
   const avg = entries.length > 0 ? entries.reduce((s, e) => s + e.score, 0) / entries.length : 0;
   const dist = [0,0,0,0,0,0];
-  entries.forEach(e => { if (e.score >= 1 && e.score <= 5) dist[e.score]++; });
+  entries.forEach(e => { if (e.score >= 1 && e.score <= 5) { dist[e.score] = (dist[e.score] ?? 0) + 1; } });
 
   const agentSummary: AgentSummary[] = Object.values(
     entries.reduce<Record<string, AgentSummary>>((acc, e) => {
