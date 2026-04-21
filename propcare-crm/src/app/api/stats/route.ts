@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET() {
   try {
     const supabase = await createClient();
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
 
     const [
       { count: totalTickets },
@@ -33,6 +33,58 @@ export async function GET() {
       acc[t.category] = (acc[t.category] ?? 0) + 1; return acc;
     }, {});
 
+    // ── SLA Stats ──
+    const { data: slaSettings } = await supabase.from("sla_settings").select("*").eq("is_active", true);
+
+    // Build SLA hours map
+    const slaMap: Record<string, number> = {};
+    for (const s of slaSettings ?? []) {
+      const key = s.source ? `${s.ticket_type}:${s.source}` : `${s.ticket_type}:default`;
+      slaMap[key] = s.hours;
+    }
+    const getSlaHours = (category: string, source: string | null): number | null => {
+      if (source && slaMap[`${category}:${source}`]) return slaMap[`${category}:${source}`];
+      return slaMap[`${category}:default`] ?? null;
+    };
+
+    // Get open/in-progress tickets with SLA
+    const { data: openTicketsData } = await supabase
+      .from("tickets")
+      .select("id, category, source, created_at, sla_hours")
+      .in("status", ["OPEN", "IN_PROGRESS", "PENDING_CLIENT"]);
+
+    let slaWithin = 0, slaAtRisk = 0, slaOverdue = 0;
+    const now = Date.now();
+    for (const t of openTicketsData ?? []) {
+      const hours = t.sla_hours ?? getSlaHours(t.category, t.source);
+      if (!hours) continue;
+      const elapsed = (now - new Date(t.created_at).getTime()) / 3600000;
+      const pct = (elapsed / hours) * 100;
+      if (elapsed > hours) slaOverdue++;
+      else if (pct >= 75) slaAtRisk++;
+      else slaWithin++;
+    }
+
+    // SLA compliance for resolved tickets (this month)
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const { data: resolvedData } = await supabase
+      .from("tickets")
+      .select("category, source, created_at, resolved_at, sla_hours")
+      .in("status", ["RESOLVED", "CLOSED"])
+      .gte("resolved_at", monthStart.toISOString())
+      .not("resolved_at", "is", null);
+
+    let resolvedWithinSLA = 0, resolvedBreached = 0;
+    for (const t of resolvedData ?? []) {
+      const hours = t.sla_hours ?? getSlaHours(t.category, t.source);
+      if (!hours || !t.resolved_at) continue;
+      const elapsed = (new Date(t.resolved_at).getTime() - new Date(t.created_at).getTime()) / 3600000;
+      if (elapsed <= hours) resolvedWithinSLA++;
+      else resolvedBreached++;
+    }
+    const totalResolved = resolvedWithinSLA + resolvedBreached;
+    const slaComplianceRate = totalResolved > 0 ? Math.round((resolvedWithinSLA / totalResolved) * 100) : null;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -44,6 +96,14 @@ export async function GET() {
         totalProperties: totalProperties ?? 0,
         byStatus: statusCounts,
         byCategory: categoryCounts,
+        sla: {
+          within: slaWithin,
+          atRisk: slaAtRisk,
+          overdue: slaOverdue,
+          complianceRate: slaComplianceRate,
+          resolvedWithinSLA,
+          resolvedBreached,
+        },
       },
     });
   } catch (err) {
