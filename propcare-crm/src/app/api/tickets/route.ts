@@ -11,12 +11,26 @@ export async function GET(req: NextRequest) {
 
     const { data: profile } = await supabase.from("users").select("id, role").eq("supabase_id", user.id).single();
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    const search = searchParams.get("search");
+    const status  = searchParams.get("status");
+    const search  = searchParams.get("search");
     const project = searchParams.get("project");
     const isAdmin = profile && ["ADMIN","SUPER_ADMIN","MANAGER"].includes(profile.role);
 
-    let query = supabase.from("tickets")
+    // Fetch SLA settings once
+    const { data: slaSettings } = await supabase.from("sla_settings").select("ticket_type, source, hours").eq("is_active", true);
+    const slaMap: Record<string, number> = {};
+    for (const s of slaSettings ?? []) {
+      const key = s.source ? `${s.ticket_type}:${s.source}` : `${s.ticket_type}:default`;
+      slaMap[key] = s.hours;
+    }
+    const getSlaHours = (category: string, source: string | null, manualHours: number | null): number | null => {
+      if (manualHours) return manualHours;
+      if (source && slaMap[`${category}:${source}`]) return slaMap[`${category}:${source}`];
+      return slaMap[`${category}:default`] ?? null;
+    };
+
+    let query = supabase
+      .from("tickets")
       .select(`*, client:clients(id, name, phone), property:properties(id, name, code), assigned_to:users!tickets_assigned_to_id_fkey(id, name), created_by:users!tickets_created_by_id_fkey(id, name)`)
       .order("created_at", { ascending: false });
 
@@ -27,7 +41,23 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await query;
     if (error) throw error;
-    return NextResponse.json({ success: true, data });
+
+    // Fetch CSAT scores for resolved/closed tickets
+    const resolvedIds = (data ?? []).filter(t => ["RESOLVED","CLOSED"].includes(t.status)).map(t => t.id);
+    let csatMap: Record<string, number> = {};
+    if (resolvedIds.length > 0) {
+      const { data: csatData } = await supabase.from("csat_scores").select("ticket_id, score").in("ticket_id", resolvedIds);
+      for (const c of csatData ?? []) csatMap[c.ticket_id] = c.score;
+    }
+
+    // Inject computed SLA hours + CSAT into each ticket
+    const enriched = (data ?? []).map(t => ({
+      ...t,
+      computed_sla_hours: getSlaHours(t.category, t.source, t.sla_hours),
+      csat_score: csatMap[t.id] ?? null,
+    }));
+
+    return NextResponse.json({ success: true, data: enriched });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ success: false, error: "Failed to fetch tickets" }, { status: 500 });
@@ -65,7 +95,6 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    // Notify assigned agent
     if (data.assigned_to_id && userRecord) {
       await supabase.from("notifications").insert({
         id: crypto.randomUUID(),
