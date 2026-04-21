@@ -227,7 +227,7 @@ export default function InteractionsPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{formatRelativeTime(i.created_at)}</p>
-                      {i.user && <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>by {i.user.name}</p>}
+                      {i.user && <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>by {(Array.isArray(i.user) ? i.user[0] : i.user)?.name}</p>}
                     </div>
                   </div>
                 );
