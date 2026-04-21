@@ -40,7 +40,7 @@ export default function CSATPage() {
 
     let query = supabase
       .from("csat_scores")
-      .select("*, ticket:tickets(id, code, title), agent:users!csat_scores_agent_id_fkey(id, name)")
+      .select("*, ticket:tickets(id, code, title), agent:users(id, name)")
       .eq("month", filterMonth)
       .eq("year", filterYear)
       .order("created_at", { ascending: false });
