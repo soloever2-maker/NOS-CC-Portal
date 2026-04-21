@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Ticket, Users, Building2,
-  BarChart3, Settings, LogOut, MessageSquare, Bell, Target, ShieldCheck,
+  BarChart3, Settings, LogOut, MessageSquare, Bell, Target, ShieldCheck, Star,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +28,7 @@ const ADMIN_NAV = [
       { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
       { href: "/dashboard/kpi", label: "KPI Dashboard", icon: Target },
       { href: "/dashboard/calls", label: "Interactions", icon: MessageSquare },
+      { href: "/dashboard/csat", label: "CSAT Scores", icon: Star },
       { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
     ],
   },
@@ -55,6 +56,7 @@ const AGENT_NAV = [
     items: [
       { href: "/dashboard/my-kpi", label: "My KPIs", icon: Target },
       { href: "/dashboard/calls", label: "Interactions", icon: MessageSquare },
+      { href: "/dashboard/csat", label: "CSAT Scores", icon: Star },
       { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
     ],
   },
