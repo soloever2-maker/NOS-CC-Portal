@@ -41,7 +41,7 @@ interface Ticket {
   project?: string; tags: string[]; due_date?: string;
   created_at: string; updated_at: string; resolved_at?: string | null;
   source?: string | null; sla_hours?: number | null;
-  client: { id: string; name: string; phone: string; email?: string } | null;
+  client: { id: string; name: string; phone: string; email?: string; whatsapp?: string | null } | null;
   property: { id: string; name: string; unit?: string; city?: string } | null;
   assigned_to: { id: string; name: string } | null;
   created_by: { id: string; name: string } | null;
