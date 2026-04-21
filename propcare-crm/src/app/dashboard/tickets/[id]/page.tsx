@@ -94,7 +94,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       });
 
     supabase.from("csat_scores").select("score, notes").eq("ticket_id", params.id)
-      .eq("month", new Date().getMonth() + 1).eq("year", new Date().getFullYear()).single()
+      .eq("month", new Date().getMonth() + 1).eq("year", new Date().getFullYear()).maybeSingle()
       .then(({ data }) => { if (data) { setExistingCsat(data); setCsatScore(data.score); setCsatNotes(data.notes ?? ""); } });
 
     supabase.auth.getUser().then(({ data: { user } }) => {
