@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
+// 1. استدعاء usePathname عشان نعرف الرابط اتغير ولا لأ
+import { usePathname } from "next/navigation"; 
 import { Sidebar } from "@/components/layout/sidebar";
 import type { User } from "@/types";
 
@@ -9,6 +11,9 @@ export function SidebarLayout({ user, children }: { user: User | null; children:
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // 2. أخد قيمة الرابط الحالي
+  const pathname = usePathname();
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -17,10 +22,10 @@ export function SidebarLayout({ user, children }: { user: User | null; children:
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // close mobile sidebar on route change
+  // 3. التعديل هنا: كلما اتغير الـ pathname، اقفل الموبايل سايد بار
   useEffect(() => {
     setMobileOpen(false);
-  }, []);
+  }, [pathname]);
 
   if (isMobile) {
     return (
