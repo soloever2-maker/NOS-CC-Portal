@@ -153,7 +153,7 @@ export default function NewClientPage() {
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
               {units.map((u, i) => {
-                const rel = RELATION_STYLE[u.relation] ?? RELATION_STYLE.prospect;
+                const rel = RELATION_STYLE[u.relation] ?? { bg: "rgba(100,100,100,0.1)", color: "var(--text-muted)" };
                 return (
                   <div key={i} className="flex items-center justify-between p-3 rounded-[10px]" style={{ background: "var(--black-700)", border: "1px solid var(--border)" }}>
                     <div className="flex items-center gap-2">
