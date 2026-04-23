@@ -187,7 +187,7 @@ export default function NewTicketPage() {
       .then(({ data }) => {
         const units = (data ?? []) as Unit[];
         setClientProps(units);
-        if (units.length === 1) setSelectedProp(units[0]);
+        if (units.length === 1 && units[0]) setSelectedProp(units[0]);
       });
   };
 
