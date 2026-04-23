@@ -143,6 +143,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ── Auto-link client ↔ property when both are present ──────────────
+    // If the ticket connects a client to a property, create the link in
+    // client_properties so it shows up in the client's "Units" section.
+    // We only create it if it doesn't already exist (never overwrite an
+    // established relation like "owner" or "tenant" with "prospect").
+    if (data.client_id && data.property_id) {
+      const { data: existingLink } = await supabase
+        .from("client_properties")
+        .select("id")
+        .eq("client_id", data.client_id)
+        .eq("property_id", data.property_id)
+        .maybeSingle();
+
+      if (!existingLink) {
+        await supabase.from("client_properties").insert({
+          id: crypto.randomUUID(),
+          client_id:   data.client_id,
+          property_id: data.property_id,
+          relation:    "prospect",   // default — agent can update from client page
+        });
+      }
+    }
+
     return NextResponse.json({ success: true, data });
   } catch (err) {
     console.error(err);
