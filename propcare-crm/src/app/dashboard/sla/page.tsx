@@ -31,12 +31,23 @@ export default function SLASettingsPage() {
   const [success, setSuccess] = useState(false);
   const [newSLA, setNewSLA] = useState({ ticket_type: "MAINTENANCE", source: "all", hours: 24 });
 
-  useEffect(() => {
+useEffect(() => {
     const supabase = createClient();
     supabase.from("sla_settings").select("*").order("ticket_type")
       .then(({ data }) => { setSettings(data ?? []); setLoading(false); });
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("supabase_id", user.id)
+        .single();
+      if (!profile || profile.role === "AGENT") {
+        window.location.href = "/dashboard";
+      }
+    });
   }, []);
-
+  
   const updateHours = async (id: string, hours: number) => {
     if (!hours || hours < 1) return;
     setSaving(id);
