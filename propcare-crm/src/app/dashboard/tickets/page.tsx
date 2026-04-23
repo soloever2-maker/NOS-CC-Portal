@@ -436,7 +436,8 @@ export default function TicketsPage() {
                         {ticket.title}
                       </Link>
                     </td>
-                    {ticket.project
+                    <td>
+                      {ticket.project
                         ? <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ background: "var(--gold-glow)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>{ticket.project}</span>
                         : <span style={{ color: "var(--text-muted)" }}>—</span>}
                     </td>
