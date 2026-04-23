@@ -135,12 +135,28 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     setContactStatus(cs);
   };
 
-  const handleAssign = async (agentId: string) => {
+   const handleAssign = async (agentId: string) => {
     setAssigning(true);
     const supabase = createClient();
     const agent = agents.find(a => a.id === agentId) ?? null;
+    const previousAgentId = assignedTo?.id ?? null;
+
     await supabase.from("tickets").update({ assigned_to_id: agentId, updated_at: new Date().toISOString() }).eq("id", params.id);
+
+    // Log reassignment in ticket_history
+    if (myUserId) {
+      await supabase.from("ticket_history").insert({
+        id: crypto.randomUUID(),
+        ticket_id: params.id,
+        field: "assigned_to_id",
+        old_value: previousAgentId,
+        new_value: agentId,
+        changed_by_id: myUserId,
+      });
+    }
+
     setAssignKey(k => k + 1);
+
     // Send in-app notification
     if (ticket && myUserId) {
       await supabase.from("notifications").insert({
@@ -153,10 +169,11 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
         is_read: false,
       });
     }
+
     setAssignedTo(agent);
     setAssigning(false);
   };
-
+  
   const handleCSAT = async () => {
     if (!csatScore || !ticket) return;
     setCsatSaving(true);
