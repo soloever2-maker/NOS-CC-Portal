@@ -35,7 +35,7 @@ interface Ticket {
   id: string; code: string; title: string; status: TicketStatus;
   priority: TicketPriority; category: string; project?: string;
   client: { name: string } | null;
-  property?: { unit?: string | null } | null;
+  unit?: { unit_number: string } | null;
   source?: string | null; contact_status?: ContactStatus | null;
   assigned_to: { name: string } | null;
   created_at: string; due_date: string | null; resolved_at?: string | null;
@@ -455,8 +455,8 @@ export default function TicketsPage() {
                     </td>
                     {/* Unit */}
                     <td>
-                      {ticket.property?.unit
-                        ? <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-[6px]" style={{ background: "var(--black-700)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>{ticket.property.unit}</span>
+                      {ticket.unit?.unit_number
+                        ? <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-[6px]" style={{ background: "var(--black-700)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>{ticket.unit.unit_number}</span>
                         : <span style={{ color: "var(--text-muted)" }}>—</span>}
                     </td>
                     <td><StatusDot status={ticket.status} compact={compact} /></td>

@@ -23,7 +23,7 @@ export async function GET() {
       supabase.from("tickets").select("*", { count: "exact", head: true }).eq("status", "IN_PROGRESS"),
       supabase.from("tickets").select("*", { count: "exact", head: true }).eq("status", "RESOLVED").gte("updated_at", today.toISOString()),
       supabase.from("clients").select("*", { count: "exact", head: true }),
-      supabase.from("properties").select("*", { count: "exact", head: true }),
+      supabase.from("client_units").select("*", { count: "exact", head: true }),
     ]);
 
     const { data: byStatus } = await supabase.from("tickets").select("status").neq("status", "CLOSED");

@@ -42,7 +42,7 @@ interface Ticket {
   created_at: string; updated_at: string; resolved_at?: string | null;
   source?: string | null; sla_hours?: number | null;
   client: { id: string; name: string; phone: string; email?: string; whatsapp?: string | null } | null;
-  property: { id: string; name: string; unit?: string; city?: string } | null;
+  unit: { id: string; unit_number: string; project?: string | null } | null;
   assigned_to: { id: string; name: string } | null;
   created_by: { id: string; name: string } | null;
 }
@@ -81,7 +81,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.from("tickets").select(`*, client:clients(id, name, phone, email), property:properties(id, name, unit, city), assigned_to:users!tickets_assigned_to_id_fkey(id, name), created_by:users!tickets_created_by_id_fkey(id, name)`)
+    supabase.from("tickets").select(`*, client:clients(id, name, phone, email), unit:client_units(id, unit_number, project), assigned_to:users!tickets_assigned_to_id_fkey(id, name), created_by:users!tickets_created_by_id_fkey(id, name)`)
       .eq("id", params.id).single()
       .then(({ data }) => {
         if (data) {
@@ -377,17 +377,17 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               </Card>
             )}
 
-            {ticket.property && (
+            {ticket.unit && (
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>PROPERTY</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex items-start gap-2">
                     <Building2 className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--gold-500)" }} />
                     <div>
-                      <Link href={`/dashboard/properties/${ticket.property.id}`} className="text-sm font-medium hover:underline" style={{ color: "var(--text-primary)" }}>{ticket.property.name}</Link>
-                      {(ticket.property.unit || ticket.property.city) && (
+                      <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Unit {ticket.unit?.unit_number}</span>
+                      {ticket.unit?.project && (
                         <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                          {[ticket.property.unit && `Unit ${ticket.property.unit}`, ticket.property.city].filter(Boolean).join(" · ")}
+                          {ticket.unit?.project}
                         </p>
                       )}
                     </div>

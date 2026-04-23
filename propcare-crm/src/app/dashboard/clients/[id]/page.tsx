@@ -30,10 +30,9 @@ interface Client {
   address?: string; city?: string; notes?: string;
   tags: string[]; created_at: string;
 }
-interface PropertyLink {
-  link_id: string; relation: string;
-  id: string; name: string; unit?: string | null;
-  project?: string | null; type: string;
+interface Unit {
+  id: string; client_id: string; unit_number: string;
+  project?: string | null; type: string; relation: string;
   floor?: number | null; bedrooms?: number | null; area?: number | null;
 }
 interface TicketItem {
@@ -78,7 +77,7 @@ function getUserName(u: InteractionItem["user"]): string {
 function PropertyCard({
   prop, clientId, onUnlink, onRefresh,
 }: {
-  prop: PropertyLink;
+  prop: Unit;
   clientId: string;
   onUnlink: (linkId: string) => void;
   onRefresh: () => void;
@@ -87,7 +86,7 @@ function PropertyCard({
   const [uploading,   setUploading]   = useState(false);
   const [editing,     setEditing]     = useState(false);
   const [editForm,    setEditForm]    = useState({
-    unit: prop.unit ?? "", project: prop.project ?? "",
+    unit: prop.unit_number ?? "", project: prop.project ?? "",
     type: prop.type ?? "APARTMENT", floor: prop.floor ? String(prop.floor) : "",
     bedrooms: prop.bedrooms ? String(prop.bedrooms) : "",
     area: prop.area ? String(prop.area) : "", relation: prop.relation,
@@ -129,17 +128,15 @@ function PropertyCard({
 
   const handleSaveEdit = async () => {
     setSaving(true);
-    const sb = supabase();
-    await sb.from("properties").update({
-      unit: editForm.unit || null,
+    await supabase().from("client_units").update({
+      unit_number: editForm.unit || prop.unit_number,
       project: editForm.project || null,
       type: editForm.type,
       floor: editForm.floor ? parseInt(editForm.floor) : null,
       bedrooms: editForm.bedrooms ? parseInt(editForm.bedrooms) : null,
       area: editForm.area ? parseFloat(editForm.area) : null,
-      name: [editForm.project, editForm.unit && `Unit ${editForm.unit}`].filter(Boolean).join(" — ") || prop.name,
+      relation: editForm.relation,
     }).eq("id", prop.id);
-    await sb.from("client_properties").update({ relation: editForm.relation }).eq("id", prop.link_id);
     setSaving(false);
     setEditing(false);
     onRefresh();
@@ -155,7 +152,7 @@ function PropertyCard({
           <Building2 className="w-4 h-4 shrink-0" style={{ color: "var(--gold-500)" }} />
           <div className="min-w-0">
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {prop.unit ? `Unit ${prop.unit}` : prop.name}
+              {prop.unit_number ? `Unit ${prop.unit_number}` : "—"}
             </p>
             <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
               {[prop.project, prop.type, prop.floor && `Floor ${prop.floor}`, prop.bedrooms && `${prop.bedrooms}BR`, prop.area && `${prop.area}m²`].filter(Boolean).join(" · ")}
@@ -167,7 +164,7 @@ function PropertyCard({
             style={{ background: rel.bg, color: rel.color, border: `1px solid ${rel.color}44` }}>
             {prop.relation}
           </span>
-          <Link href={`/dashboard/tickets/new?clientId=${clientId}&propertyId=${prop.id}`}
+          <Link href={`/dashboard/tickets/new?clientId=${clientId}&unitId=${prop.id}`}
             className="flex items-center gap-1 px-2 py-0.5 rounded-[6px] text-[10px] font-semibold transition-all"
             style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
             + Ticket
@@ -288,27 +285,18 @@ function AddUnitPanel({ clientId, onSaved, onClose }: { clientId: string; onSave
     setSaving(true);
     setError(null);
     try {
-      const propRes = await fetch("/api/properties", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: `${clientId.slice(0, 4).toUpperCase()}-${form.unit}`,
-          name: [form.project, `Unit ${form.unit}`].filter(Boolean).join(" — "),
-          type: form.type, status: "SOLD",
-          project: form.project || null, unit: form.unit,
-          floor: form.floor ? parseInt(form.floor) : undefined,
-          bedrooms: form.bedrooms ? parseInt(form.bedrooms) : undefined,
-          area: form.area ? parseFloat(form.area) : undefined,
-          amenities: [],
-        }),
+      const { error: insertErr } = await supabase().from("client_units").insert({
+        id: crypto.randomUUID(),
+        client_id: clientId,
+        unit_number: form.unit.trim(),
+        project: form.project || null,
+        type: form.type,
+        floor: form.floor ? parseInt(form.floor) : null,
+        bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null,
+        area: form.area ? parseFloat(form.area) : null,
+        relation: form.relation,
       });
-      const propJson = await propRes.json();
-      if (!propJson.success) throw new Error(propJson.error);
-      const { error: linkErr } = await supabase().from("client_properties").insert({
-        id: crypto.randomUUID(), client_id: clientId,
-        property_id: propJson.data.id, relation: form.relation,
-      });
-      if (linkErr) throw linkErr;
+      if (insertErr) throw insertErr;
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add unit");
@@ -379,7 +367,7 @@ function AddUnitPanel({ clientId, onSaved, onClose }: { clientId: string; onSave
 // ─── Main Page ─────────────────────────────────────
 export default function ClientDetailPage({ params }: { params: { id: string } }) {
   const [client,       setClient]       = useState<Client | null>(null);
-  const [properties,   setProperties]   = useState<PropertyLink[]>([]);
+  const [properties,   setProperties]   = useState<Unit[]>([]);
   const [tickets,      setTickets]      = useState<TicketItem[]>([]);
   const [interactions, setInteractions] = useState<InteractionItem[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -388,19 +376,11 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
   const [showAllTkts,  setShowAllTkts]  = useState(false);
 
   const loadProperties = async () => {
-    const { data } = await supabase().from("client_properties")
-      .select("id, relation, property:properties(id, name, unit, project, type, floor, bedrooms, area)")
-      .eq("client_id", params.id);
-    setProperties((data ?? []).map((cp: Record<string, unknown>) => {
-      const p = (Array.isArray(cp.property) ? cp.property[0] : cp.property) as Record<string, unknown>;
-      return {
-        link_id: cp.id as string, relation: cp.relation as string,
-        id: p?.id as string, name: p?.name as string,
-        unit: p?.unit as string | null, project: p?.project as string | null,
-        type: p?.type as string, floor: p?.floor as number | null,
-        bedrooms: p?.bedrooms as number | null, area: p?.area as number | null,
-      };
-    }).filter(p => p.id));
+    const { data } = await supabase().from("client_units")
+      .select("id, client_id, unit_number, project, type, relation, floor, bedrooms, area")
+      .eq("client_id", params.id)
+      .order("created_at", { ascending: true });
+    setProperties((data ?? []) as Unit[]);
   };
 
   useEffect(() => {
@@ -419,8 +399,8 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  const handleUnlink = async (linkId: string) => {
-    await supabase().from("client_properties").delete().eq("id", linkId);
+  const handleUnlink = async (unitId: string) => {
+    await supabase().from("client_units").delete().eq("id", unitId);
     await loadProperties();
   };
 
@@ -436,7 +416,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       ["ID Number", client.id_number ?? ""], ["City", client.city ?? ""],
       ["Address", client.address ?? ""], ["Tags", client.tags.join(", ")],
       ["Notes", client.notes ?? ""],
-      ["Units", properties.map(p => `${p.name}${p.unit ? ` Unit ${p.unit}` : ""} (${p.relation})`).join(" | ")],
+      ["Units", properties.map(p => `Unit ${p.unit_number}${p.project ? ` (${p.project})` : ""} — ${p.relation}`).join(" | ")],
       ["Total Tickets", String(tickets.length)],
       ["Open Tickets", String(tickets.filter(t => ["OPEN","IN_PROGRESS","PENDING_CLIENT"].includes(t.status)).length)],
       ["Member Since", formatDate(client.created_at)],
@@ -615,7 +595,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                 ) : (
                   <div className="space-y-2">
                     {properties.map(p => (
-                      <PropertyCard key={p.link_id} prop={p} clientId={client.id} onUnlink={handleUnlink} onRefresh={loadProperties} />
+                      <PropertyCard key={p.id} prop={p} clientId={client.id} onUnlink={handleUnlink} onRefresh={loadProperties} />
                     ))}
                   </div>
                 )}

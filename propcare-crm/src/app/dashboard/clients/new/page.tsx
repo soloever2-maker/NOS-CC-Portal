@@ -65,25 +65,16 @@ export default function NewClientPage() {
 
       const sb = supabase();
       for (const u of units) {
-        const propRes = await fetch("/api/properties", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code: `${clientId.slice(0, 4).toUpperCase()}-${u.unit}`,
-            name: [u.project, `Unit ${u.unit}`].filter(Boolean).join(" — "),
-            type: u.type, status: "SOLD",
-            project: u.project || null, unit: u.unit,
-            floor: u.floor ? parseInt(u.floor) : undefined,
-            bedrooms: u.bedrooms ? parseInt(u.bedrooms) : undefined,
-            area: u.area ? parseFloat(u.area) : undefined,
-            amenities: [],
-          }),
-        });
-        const propJson = await propRes.json();
-        if (!propJson.success) continue;
-        await sb.from("client_properties").insert({
-          id: crypto.randomUUID(), client_id: clientId,
-          property_id: propJson.data.id, relation: u.relation,
+        await sb.from("client_units").insert({
+          id: crypto.randomUUID(),
+          client_id: clientId,
+          unit_number: u.unit.trim(),
+          project: u.project || null,
+          type: u.type,
+          floor: u.floor ? parseInt(u.floor) : null,
+          bedrooms: u.bedrooms ? parseInt(u.bedrooms) : null,
+          area: u.area ? parseFloat(u.area) : null,
+          relation: u.relation,
         });
       }
       router.push(`/dashboard/clients/${clientId}`);

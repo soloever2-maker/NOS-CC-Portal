@@ -22,13 +22,9 @@ const TICKET_SOURCES = [
 
 interface Client {
   id: string; name: string; phone: string; whatsapp?: string | null;
-  _count?: { properties: number };
 }
-interface Property {
-  id: string; name: string; unit?: string | null; project?: string | null; type: string;
-}
-interface ClientProperty {
-  property: Property | Property[];
+interface Unit {
+  id: string; unit_number: string; project?: string | null; type: string;
 }
 
 // ── Smart Search Combobox ──
@@ -116,12 +112,11 @@ export default function NewTicketPage() {
   const [clientLoading,  setClientLoading]  = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  // Property search
+  // Unit search
   const [propSearch,    setPropSearch]    = useState("");
-  const [propResults,   setPropResults]   = useState<Property[]>([]);
   const [propLoading,   setPropLoading]   = useState(false);
-  const [selectedProp,  setSelectedProp]  = useState<Property | null>(null);
-  const [clientProps,   setClientProps]   = useState<Property[]>([]);
+  const [selectedProp,  setSelectedProp]  = useState<Unit | null>(null);
+  const [clientProps,   setClientProps]   = useState<Unit[]>([]);
 
   const [form, setForm] = useState({
     title: "", description: "", priority: "MEDIUM", category: "OTHER",
@@ -130,13 +125,22 @@ export default function NewTicketPage() {
   });
   const set = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
 
-  // Pre-fill clientId from URL param
+  // Pre-fill clientId and unitId from URL params
   useEffect(() => {
     const clientId = searchParams.get("clientId");
+    const unitId   = searchParams.get("unitId");
     if (clientId) {
       const supabase = createClient();
       supabase.from("clients").select("id, name, phone, whatsapp").eq("id", clientId).single()
-        .then(({ data }) => { if (data) handleSelectClient(data as Client); });
+        .then(({ data }) => {
+          if (!data) return;
+          handleSelectClient(data as Client);
+          // If unitId provided, pre-select that unit
+          if (unitId) {
+            supabase.from("client_units").select("id, unit_number, project, type").eq("id", unitId).single()
+              .then(({ data: unit }) => { if (unit) handleSelectProp(unit as Unit); });
+          }
+        });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -167,20 +171,7 @@ export default function NewTicketPage() {
       .then(({ data }) => { setClientResults(data ?? []); setClientLoading(false); });
   }, [clientSearch]);
 
-  // Property search (global — when no client selected)
-  useEffect(() => {
-    if (selectedClient) return;
-    if (!propSearch.trim()) { setPropResults([]); return; }
-    setPropLoading(true);
-    const supabase = createClient();
-    const q = propSearch.trim();
-    supabase.from("properties").select("id, name, unit, project, type")
-      .or(`name.ilike.%${q}%,unit.ilike.%${q}%,project.ilike.%${q}%`)
-      .limit(8)
-      .then(({ data }) => { setPropResults(data ?? []); setPropLoading(false); });
-  }, [propSearch, selectedClient]);
-
-  // Load client's properties when client selected
+  // Load client's units when client selected
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client);
     setClientSearch("");
@@ -189,26 +180,25 @@ export default function NewTicketPage() {
     setClientProps([]);
 
     const supabase = createClient();
-    supabase.from("client_properties")
-      .select("property:properties(id, name, unit, project, type)")
+    supabase.from("client_units")
+      .select("id, unit_number, project, type")
       .eq("client_id", client.id)
+      .order("created_at", { ascending: true })
       .then(({ data }) => {
-        const props = (data ?? []).map((cp: ClientProperty) => Array.isArray(cp.property) ? cp.property[0] : cp.property).filter(Boolean) as Property[];
-        setClientProps(props);
-        // Auto-select if only one property
-        if (props.length === 1 && props[0]) setSelectedProp(props[0]);
+        const units = (data ?? []) as Unit[];
+        setClientProps(units);
+        if (units.length === 1) setSelectedProp(units[0]);
       });
   };
 
-  const handleSelectProp = (prop: Property) => {
-    setSelectedProp(prop);
-    if (prop.project) set("project", prop.project);
+  const handleSelectProp = (unit: Unit) => {
+    setSelectedProp(unit);
+    if (unit.project) set("project", unit.project);
   };
 
-  // Property results: client props or global search
-  const displayPropResults = selectedClient
-    ? clientProps.filter(p => !propSearch || p.name?.toLowerCase().includes(propSearch.toLowerCase()) || p.unit?.toLowerCase().includes(propSearch.toLowerCase()))
-    : propResults;
+  const displayPropResults = clientProps.filter(p =>
+    !propSearch || p.unit_number.toLowerCase().includes(propSearch.toLowerCase()) || (p.project ?? "").toLowerCase().includes(propSearch.toLowerCase())
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,7 +211,7 @@ export default function NewTicketPage() {
         body: JSON.stringify({
           ...form,
           clientId: selectedClient?.id ?? "",
-          propertyId: selectedProp?.id ?? "",
+          unitId: selectedProp?.id ?? "",
           tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
         }),
       });
@@ -387,50 +377,49 @@ export default function NewTicketPage() {
                       )}
                     </div>
                     <SearchCombobox
-                      placeholder={selectedClient ? "Search client units…" : "Search by name or unit…"}
+                      placeholder="Search units…"
                       value={selectedProp ? (
                         <div className="flex items-center gap-2">
                           <Building2 className="w-4 h-4 shrink-0" style={{ color: "var(--gold-500)" }} />
                           <div>
-                            <p className="text-sm font-medium leading-none" style={{ color: "var(--text-primary)" }}>{selectedProp.name}</p>
+                            <p className="text-sm font-medium leading-none" style={{ color: "var(--text-primary)" }}>Unit {selectedProp.unit_number}</p>
                             <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                              {[selectedProp.project, selectedProp.unit && `Unit ${selectedProp.unit}`].filter(Boolean).join(" · ")}
+                              {[selectedProp.project, selectedProp.type].filter(Boolean).join(" · ")}
                             </p>
                           </div>
                         </div>
                       ) : null}
-                      onSelect={item => handleSelectProp(item as Property)}
+                      onSelect={item => handleSelectProp(item as Unit)}
                       onClear={() => setSelectedProp(null)}
                       search={propSearch}
                       setSearch={setPropSearch}
                       results={displayPropResults}
                       loading={propLoading}
                       renderResult={item => {
-                        const p = item as Property;
+                        const u = item as Unit;
                         return (
                           <div className="flex items-center gap-2.5">
                             <Building2 className="w-4 h-4 shrink-0" style={{ color: "var(--gold-500)" }} />
                             <div>
-                              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.name}</p>
+                              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Unit {u.unit_number}</p>
                               <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                                {[p.project, p.unit && `Unit ${p.unit}`, p.type].filter(Boolean).join(" · ")}
+                                {[u.project, u.type].filter(Boolean).join(" · ")}
                               </p>
                             </div>
                           </div>
                         );
                       }}
                     />
-                    {/* Show all client units as quick pills if ≤ 5 */}
                     {selectedClient && !selectedProp && clientProps.length > 0 && clientProps.length <= 5 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {clientProps.map(p => (
-                          <button key={p.id} type="button" onClick={() => handleSelectProp(p)}
+                        {clientProps.map(u => (
+                          <button key={u.id} type="button" onClick={() => handleSelectProp(u)}
                             className="flex items-center gap-1 px-2 py-1 rounded-[6px] text-xs transition-all"
                             style={{ background: "var(--black-600)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
                             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--gold-500)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--gold-500)"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)"; }}>
                             <Building2 className="w-3 h-3" />
-                            {p.unit ? `Unit ${p.unit}` : p.name}
+                            Unit {u.unit_number}
                           </button>
                         ))}
                       </div>

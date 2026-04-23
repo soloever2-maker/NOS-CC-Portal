@@ -126,7 +126,7 @@ export interface Property {
 export interface ClientProperty {
   id: string;
   clientId: string;
-  propertyId: string;
+  unitId: string;
   relation: string;
   since?: Date | null;
   notes?: string | null;
@@ -148,7 +148,7 @@ export interface Ticket {
   source?: string | null;
   slaHours?: number | null;
   clientId?: string | null;
-  propertyId?: string | null;
+  unitId?: string | null;
   assignedToId?: string | null;
   createdById: string;
   dueDate?: Date | null;

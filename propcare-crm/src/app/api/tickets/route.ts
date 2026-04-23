@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from("tickets")
-      .select(`*, client:clients(id, name, phone), property:properties(id, name, code, unit, project), assigned_to:users!tickets_assigned_to_id_fkey(id, name), created_by:users!tickets_created_by_id_fkey(id, name)`)
+      .select(`*, client:clients(id, name, phone), unit:client_units(id, unit_number, project), assigned_to:users!tickets_assigned_to_id_fkey(id, name), created_by:users!tickets_created_by_id_fkey(id, name)`)
       .order("created_at", { ascending: false });
 
     if (!isAdmin && profile) query = query.eq("assigned_to_id", profile.id);
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       project: body.project || null,
       source: body.source ?? "walk_in",
       client_id: body.clientId || null,
-      property_id: body.propertyId || null,
+      unit_id: body.unitId || null,
       assigned_to_id: isAdmin ? (body.assignedToId || null) : null,
       created_by_id: userRecord?.id ?? user.id,
       due_date: body.dueDate || null,
@@ -152,29 +152,6 @@ export async function POST(req: NextRequest) {
         link: `/dashboard/tickets/${data.id}`,
         is_read: false,
       });
-    }
-
-    // ── Auto-link client ↔ property when both are present ──────────────
-    // If the ticket connects a client to a property, create the link in
-    // client_properties so it shows up in the client's "Units" section.
-    // We only create it if it doesn't already exist (never overwrite an
-    // established relation like "owner" or "tenant" with "prospect").
-    if (data.client_id && data.property_id) {
-      const { data: existingLink } = await supabase
-        .from("client_properties")
-        .select("id")
-        .eq("client_id", data.client_id)
-        .eq("property_id", data.property_id)
-        .maybeSingle();
-
-      if (!existingLink) {
-        await supabase.from("client_properties").insert({
-          id: crypto.randomUUID(),
-          client_id:   data.client_id,
-          property_id: data.property_id,
-          relation:    "prospect",   // default — agent can update from client page
-        });
-      }
     }
 
     return NextResponse.json({ success: true, data });

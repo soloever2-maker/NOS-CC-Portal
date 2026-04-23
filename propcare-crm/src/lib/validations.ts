@@ -18,7 +18,7 @@ export const CreateTicketSchema = z.object({
   project: z.string().optional(),
   source: z.string().optional(),
   clientId: z.string().optional(),
-  propertyId: z.string().optional(),
+  unitId: z.string().optional(),
   assignedToId: z.string().optional(),
   dueDate: z.string().optional(),
   tags: z.array(z.string()).default([]),
