@@ -50,13 +50,49 @@ export async function GET(req: NextRequest) {
       for (const c of csatData ?? []) csatMap[c.ticket_id] = c.score;
     }
 
-    // Inject computed SLA hours + CSAT into each ticket
+  // Fetch reassignment history
+    const ticketIds = (data ?? []).map(t => t.id);
+    let reassignMap: Record<string, { fromName: string; toName: string; at: string } | null> = {};
+    if (ticketIds.length > 0) {
+      const { data: historyData } = await supabase
+        .from("ticket_history")
+        .select("ticket_id, old_value, new_value, created_at")
+        .in("ticket_id", ticketIds)
+        .eq("field", "assigned_to_id")
+        .order("created_at", { ascending: false });
+
+      if (historyData && historyData.length > 0) {
+        const userIds = [...new Set([
+          ...historyData.map(h => h.old_value),
+          ...historyData.map(h => h.new_value),
+        ].filter(Boolean))];
+
+        const { data: historyUsers } = await supabase
+          .from("users").select("id, name").in("id", userIds);
+
+        const userNameMap: Record<string, string> = {};
+        for (const u of historyUsers ?? []) userNameMap[u.id] = u.name;
+
+        for (const h of historyData) {
+          if (!reassignMap[h.ticket_id]) {
+            reassignMap[h.ticket_id] = {
+              fromName: userNameMap[h.old_value ?? ""] ?? "Unassigned",
+              toName:   userNameMap[h.new_value ?? ""] ?? "Unassigned",
+              at:       h.created_at,
+            };
+          }
+        }
+      }
+    }
+
+    // Inject computed SLA hours + CSAT + reassignment into each ticket
     const enriched = (data ?? []).map(t => ({
       ...t,
-      computed_sla_hours: getSlaHours(t.category, t.source, t.sla_hours),
-      csat_score: csatMap[t.id] ?? null,
+      computed_sla_hours:  getSlaHours(t.category, t.source, t.sla_hours),
+      csat_score:          csatMap[t.id] ?? null,
+      last_reassignment:   reassignMap[t.id] ?? null,
     }));
-
+    
     return NextResponse.json({ success: true, data: enriched });
   } catch (err) {
     console.error(err);
