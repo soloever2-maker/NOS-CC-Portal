@@ -1,3 +1,4 @@
+import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -27,14 +28,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     profile = newProfile;
   }
 
-  return (
+return (
     <DashboardWrapper>
-      <div className="flex min-h-screen" style={{ backgroundColor: "var(--black-950)" }}>
-        <Sidebar user={profile} />
-        <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden" style={{ marginLeft: 260 }}>
-          {children}
-        </main>
-      </div>
+      <SidebarLayout user={profile}>
+        {children}
+      </SidebarLayout>
     </DashboardWrapper>
   );
 }
