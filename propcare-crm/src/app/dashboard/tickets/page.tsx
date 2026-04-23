@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Plus, Search, AlertCircle, Download, X,
-  MoreHorizontal, Eye, Trash2, ChevronDown, Filter, AlignJustify, Star, Calendar,
+  MoreHorizontal, Eye, Trash2, ChevronDown, Filter, AlignJustify, Star, Calendar, ArrowRight,
 } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ interface Ticket {
   created_at: string; due_date: string | null; resolved_at?: string | null;
   computed_sla_hours?: number | null;
   csat_score?: number | null;
+  last_reassignment?: { fromName: string; toName: string; at: string } | null;
 }
 
 // ── Export Modal ──
@@ -55,7 +56,6 @@ function ExportModal({ onClose, agents }: { onClose: () => void; agents: { id: s
   const [exporting,  setExporting]  = useState(false);
   const [count,      setCount]      = useState<number | null>(null);
 
-  // Quick range presets
   const setRange = (days: number) => {
     const end = new Date();
     const start = new Date();
@@ -71,7 +71,22 @@ function ExportModal({ onClose, agents }: { onClose: () => void; agents: { id: s
     setDateTo(new Date(y, m + 1, 0).toISOString().split("T")[0]);
   };
 
-  // Preview count
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const YEARS  = [2024, 2025, 2026];
+
+  const setMonthYear = (month: number, year: number) => {
+    setDateFrom(new Date(year, month, 1).toISOString().split("T")[0]);
+    setDateTo(new Date(year, month + 1, 0).toISOString().split("T")[0]);
+  };
+
+  const QUICK = [
+    { label: "This Week",  action: () => setRange(7)       },
+    { label: "This Month", action: () => setMonthRange(0)  },
+    { label: "Last Month", action: () => setMonthRange(-1) },
+    { label: "Last 3 Mo.", action: () => setRange(90)      },
+    { label: "All Time",   action: () => { setDateFrom("2020-01-01"); setDateTo(today); } },
+  ];
+
   useEffect(() => {
     const supabase = createClient();
     let q = supabase.from("tickets").select("*", { count: "exact", head: true });
@@ -103,22 +118,6 @@ function ExportModal({ onClose, agents }: { onClose: () => void; agents: { id: s
     onClose();
   };
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const YEARS  = [2024, 2025, 2026];
-
-  const setMonthYear = (month: number, year: number) => {
-    setDateFrom(new Date(year, month, 1).toISOString().split("T")[0]);
-    setDateTo(new Date(year, month + 1, 0).toISOString().split("T")[0]);
-  };
-
-  const QUICK = [
-    { label: "This Week",  action: () => setRange(7)       },
-    { label: "This Month", action: () => setMonthRange(0)  },
-    { label: "Last Month", action: () => setMonthRange(-1) },
-    { label: "Last 3 Mo.", action: () => setRange(90)      },
-    { label: "All Time",   action: () => { setDateFrom("2020-01-01"); setDateTo(today); } },
-  ];
-  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="w-full max-w-md rounded-[14px] shadow-2xl" style={{ background: "var(--black-800)", border: "1px solid var(--border)" }}>
@@ -134,7 +133,7 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Quick ranges */}
+          {/* Quick ranges + Month/Year picker */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Quick Range</p>
             <div className="flex flex-wrap gap-1.5 mb-3">
@@ -169,8 +168,8 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
                 </div>
               ))}
             </div>
-          </div> 
-          
+          </div>
+
           {/* Date Range */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Date Range</p>
@@ -411,9 +410,9 @@ export default function TicketsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="text-center py-10"><div className="w-5 h-5 border-2 border-t-[var(--gold-500)] rounded-full animate-spin mx-auto" /></td></tr>
+                <tr><td colSpan={11} className="text-center py-10"><div className="w-5 h-5 border-2 border-t-[var(--gold-500)] rounded-full animate-spin mx-auto" /></td></tr>
               ) : tickets.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-10" style={{ color: "var(--text-muted)" }}>
+                <tr><td colSpan={11} className="text-center py-10" style={{ color: "var(--text-muted)" }}>
                   <AlertCircle className="w-7 h-7 mx-auto mb-2 opacity-40" />
                   <p className="text-sm">{activeProject !== "ALL" ? `No tickets for ${activeProject}` : "No tickets found"}</p>
                 </td></tr>
@@ -421,6 +420,7 @@ export default function TicketsPage() {
                 const isOverdue = ticket.due_date && new Date(ticket.due_date) < new Date() && !["RESOLVED","CLOSED"].includes(ticket.status);
                 return (
                   <tr key={ticket.id} className="group">
+                    {/* Code column */}
                     <td>
                       <span className="font-mono text-xs font-bold" style={{ color: "var(--gold-400)" }}>
                         {ticket.code}
@@ -431,16 +431,29 @@ export default function TicketsPage() {
                         </div>
                       )}
                     </td>
+                    {/* Ticket title + reassignment */}
                     <td style={{ maxWidth: 220 }}>
                       <Link href={`/dashboard/tickets/${ticket.id}`} className="font-medium hover:text-[var(--gold-400)] transition-colors line-clamp-1 block" style={{ color: "var(--text-primary)" }}>
                         {ticket.title}
                       </Link>
+                      {ticket.last_reassignment && (
+                        <div className="flex items-center gap-1 mt-0.5 row-subtitle">
+                          <ArrowRight className="w-2.5 h-2.5 shrink-0" style={{ color: "var(--text-muted)" }} />
+                          <span className="text-[10px] truncate" style={{ color: "var(--text-muted)" }}>
+                            {ticket.last_reassignment.fromName}
+                            <span style={{ color: "var(--gold-500)", margin: "0 3px" }}>→</span>
+                            {ticket.last_reassignment.toName}
+                          </span>
+                        </div>
+                      )}
                     </td>
+                    {/* Project */}
                     <td>
                       {ticket.project
                         ? <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ background: "var(--gold-glow)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>{ticket.project}</span>
                         : <span style={{ color: "var(--text-muted)" }}>—</span>}
                     </td>
+                    {/* Client */}
                     <td>
                       <span style={{ color: "var(--text-secondary)" }}>{ticket.client?.name ?? "—"}</span>
                     </td>
