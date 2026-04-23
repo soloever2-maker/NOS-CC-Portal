@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftClose } from "lucide-react";
+import { PanelLeftClose, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -151,8 +151,8 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapse
             fontSize: 12,
           }}
         >
-          <PanelLeftClose className="w-3.5 h-3.5" />
-          <span>Collapse sidebar</span>
+          <X className="w-3.5 h-3.5" />
+          <span>Close</span>
         </button>
       </div>
 
