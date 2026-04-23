@@ -70,7 +70,7 @@ const AGENT_NAV = [
 
 interface SidebarProps { user?: User | null; }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "MANAGER";
@@ -90,9 +90,12 @@ export function Sidebar({ user }: SidebarProps) {
 
   const initials = user?.name ? getInitials(user.name) : "NOS";
 
-  return (
-    <aside className="sidebar flex-col fixed left-0 top-0 h-screen z-40" style={{ width: 260 }}>
-      <div className="px-5 py-5 border-b" style={{ borderColor: "var(--border)" }}>
+return (
+    <aside
+      className="sidebar flex-col fixed left-0 top-0 h-screen z-40"
+      style={{ width: collapsed ? 0 : 260, overflow: "hidden", transition: "width 0.25s ease" }}
+    >
+      <div className="px-5 py-5 border-b" style={{ borderColor: "var(--border)", minWidth: 260 }}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-[10px] overflow-hidden flex items-center justify-center shrink-0" style={{ background: "var(--black-700)" }}>
             <Image src="/logo.png" alt="NOS" width={36} height={36} className="w-full h-full object-contain" priority />
@@ -105,7 +108,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
         </div>
       </div>
-
+      
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         {NAV_SECTIONS.map((section) => (
           <div key={section.title}>
