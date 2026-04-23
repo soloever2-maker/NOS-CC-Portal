@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelLeftClose } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -90,7 +91,7 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapse
 
   const initials = user?.name ? getInitials(user.name) : "NOS";
 
-return (
+  return (
     <aside
       className="sidebar flex-col fixed left-0 top-0 h-screen z-40"
       style={{ width: collapsed ? 0 : 260, overflow: "hidden", transition: "width 0.25s ease" }}
@@ -108,7 +109,7 @@ return (
           </div>
         </div>
       </div>
-      
+
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         {NAV_SECTIONS.map((section) => (
           <div key={section.title}>
@@ -132,7 +133,30 @@ return (
 
       <div className="gold-divider" />
 
-      <div className="p-3">
+      {/* Collapse Button */}
+      <div className="px-3 py-2" style={{ minWidth: 260, borderBottom: "1px solid var(--border)" }}>
+        <button
+          onClick={onToggle}
+          style={{
+            width: "100%",
+            padding: "7px 10px",
+            borderRadius: 8,
+            background: "transparent",
+            border: "1px solid var(--border)",
+            color: "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: "pointer",
+            fontSize: 12,
+          }}
+        >
+          <PanelLeftClose className="w-3.5 h-3.5" />
+          <span>Collapse sidebar</span>
+        </button>
+      </div>
+
+      <div className="p-3" style={{ minWidth: 260 }}>
         <div className="flex items-center gap-3 p-2.5 rounded-[10px]">
           <Avatar className="h-8 w-8 shrink-0">
             <AvatarImage src={user?.avatar ?? undefined} />
