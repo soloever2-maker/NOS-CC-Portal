@@ -174,7 +174,7 @@ function PropertyCard({
             style={{ color: "var(--text-muted)" }} title="Edit">
             <Pencil className="w-3 h-3" />
           </button>
-          <button onClick={() => onUnlink(prop.link_id)}
+          <button onClick={() => onUnlink(prop.id)}
             className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-red-500/10 transition-all"
             style={{ color: "var(--text-muted)" }} title="Remove">
             <X className="w-3 h-3" />
