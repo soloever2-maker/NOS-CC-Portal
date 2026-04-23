@@ -103,14 +103,22 @@ function ExportModal({ onClose, agents }: { onClose: () => void; agents: { id: s
     onClose();
   };
 
-  const QUICK = [
-    { label: "This Week",    action: () => setRange(7)       },
-    { label: "This Month",   action: () => setMonthRange(0)  },
-    { label: "Last Month",   action: () => setMonthRange(-1) },
-    { label: "Last 3 Mo.",   action: () => setRange(90)      },
-    { label: "All Time",     action: () => { setDateFrom("2020-01-01"); setDateTo(today); } },
-  ];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const YEARS  = [2024, 2025, 2026];
 
+  const setMonthYear = (month: number, year: number) => {
+    setDateFrom(new Date(year, month, 1).toISOString().split("T")[0]);
+    setDateTo(new Date(year, month + 1, 0).toISOString().split("T")[0]);
+  };
+
+  const QUICK = [
+    { label: "This Week",  action: () => setRange(7)       },
+    { label: "This Month", action: () => setMonthRange(0)  },
+    { label: "Last Month", action: () => setMonthRange(-1) },
+    { label: "Last 3 Mo.", action: () => setRange(90)      },
+    { label: "All Time",   action: () => { setDateFrom("2020-01-01"); setDateTo(today); } },
+  ];
+  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
       <div className="w-full max-w-md rounded-[14px] shadow-2xl" style={{ background: "var(--black-800)", border: "1px solid var(--border)" }}>
@@ -129,7 +137,7 @@ function ExportModal({ onClose, agents }: { onClose: () => void; agents: { id: s
           {/* Quick ranges */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Quick Range</p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mb-3">
               {QUICK.map(q => (
                 <button key={q.label} onClick={q.action}
                   className="px-2.5 py-1 rounded-[6px] text-xs font-medium transition-all"
@@ -141,8 +149,28 @@ function ExportModal({ onClose, agents }: { onClose: () => void; agents: { id: s
                 </button>
               ))}
             </div>
-          </div>
-
+            {/* Month / Year picker */}
+            <div className="space-y-1.5">
+              {YEARS.map(year => (
+                <div key={year} className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold w-8 shrink-0" style={{ color: "var(--text-muted)" }}>{year}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {MONTHS.map((m, i) => (
+                      <button key={m} onClick={() => setMonthYear(i, year)}
+                        className="px-2 py-0.5 rounded-[5px] text-[10px] font-semibold transition-all"
+                        style={{ background: "var(--black-700)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--gold-500)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--gold-500)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)"; }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div> 
+          
           {/* Date Range */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Date Range</p>
@@ -376,7 +404,7 @@ export default function TicketsPage() {
           <table className={`crm-table${compact ? " compact" : ""}`}>
             <thead>
               <tr>
-                <th>Ticket</th><th>Project</th><th>Client</th>
+                <th>Code</th><th>Ticket</th><th>Project</th><th>Client</th>
                 <th>Status</th><th>Contact</th><th>Priority</th>
                 <th>SLA</th><th>CSAT</th><th>Assigned To</th><th></th>
               </tr>
@@ -393,17 +421,22 @@ export default function TicketsPage() {
                 const isOverdue = ticket.due_date && new Date(ticket.due_date) < new Date() && !["RESOLVED","CLOSED"].includes(ticket.status);
                 return (
                   <tr key={ticket.id} className="group">
+                    <td>
+                      <span className="font-mono text-xs font-bold" style={{ color: "var(--gold-400)" }}>
+                        {ticket.code}
+                      </span>
+                      {isOverdue && (
+                        <div className="mt-0.5">
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "var(--danger)" }}>OVERDUE</span>
+                        </div>
+                      )}
+                    </td>
                     <td style={{ maxWidth: 220 }}>
                       <Link href={`/dashboard/tickets/${ticket.id}`} className="font-medium hover:text-[var(--gold-400)] transition-colors line-clamp-1 block" style={{ color: "var(--text-primary)" }}>
                         {ticket.title}
                       </Link>
-                      <div className="flex items-center gap-1.5 mt-0.5 row-subtitle">
-                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{ticket.code}</span>
-                        {isOverdue && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "var(--danger)" }}>OVERDUE</span>}
-                      </div>
                     </td>
-                    <td>
-                      {ticket.project
+                    {ticket.project
                         ? <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ background: "var(--gold-glow)", color: "var(--gold-400)", border: "1px solid var(--border)" }}>{ticket.project}</span>
                         : <span style={{ color: "var(--text-muted)" }}>—</span>}
                     </td>
