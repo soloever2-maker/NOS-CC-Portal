@@ -209,12 +209,13 @@ function LinkUnitPanel({
   const handleSave = async () => {
     if (!selected) return;
     setSaving(true);
-    await supabase().from("client_properties").upsert({
+    const { error } = await supabase().from("client_properties").upsert({
       id: crypto.randomUUID(), client_id: clientId,
       property_id: selected.id, relation,
     }, { onConflict: "client_id,property_id" });
-    onLinked();
     setSaving(false);
+    if (error) { alert("Failed to link unit: " + error.message); return; }
+    await onLinked();
   };
 
   return (
