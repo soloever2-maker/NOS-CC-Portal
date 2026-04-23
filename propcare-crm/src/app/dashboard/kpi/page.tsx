@@ -34,40 +34,43 @@ export default function KPIDashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    const supabase = createClient();
-    Promise.all([
-      supabase.from("kpi_settings").select("*").eq("is_active", true),
-      supabase.from("users").select("id, name, email, role").eq("is_active", true).eq("role", "AGENT"),
-    ]).then(async ([{ data: kpis }, { data: agentList }]) => {
-      setKpiSettings(kpis ?? []);
-      setAgents(agentList ?? []);
+useEffect(() => {
+  const supabase = createClient();
+  Promise.all([
+    supabase.from("kpl_settings").select("*"),
+    supabase.from("users").select("id, name, email, role").eq("is_active", true).eq("role", "AGENT"),
+  ]).then(async ([{ data: kpis }, { data: agentList }]) => {
+    
+    setKpiSettings(kpis ?? []);
+    setAgents(agentList ?? []);
+    const agentPerf: AgentKPI[] = [];
+    
+    for (const agent of agentList ?? []) {
+      const [{ count: total }, { count: resolved }, { data: csat }] = await Promise.all([
+        supabase.from("tickets").select("*", { count: "exact", head: true }).eq("assigned_to_id", agent.id),
+        supabase.from("tickets").select("*", { count: "exact", head: true }).eq("assigned_to_id", agent.id).eq("status", "RESOLVED"),
+        supabase.from("csat_scores").select("score").eq("agent_id", agent.id).eq("month", selectedMonth).eq("year", selectedYear),
+      ]);
 
-      // Get agent performance data
-      const agentPerf: AgentKPI[] = [];
-      for (const agent of agentList ?? []) {
-        const [{ count: total }, { count: resolved }, { data: csat }] = await Promise.all([
-          supabase.from("tickets").select("*", { count: "exact", head: true }).eq("assigned_to_id", agent.id),
-          supabase.from("tickets").select("*", { count: "exact", head: true }).eq("assigned_to_id", agent.id).eq("status", "RESOLVED"),
-          supabase.from("csat_scores").select("score").eq("agent_id", agent.id).eq("month", selectedMonth).eq("year", selectedYear),
-        ]);
+      const csatAvg = csat && csat.length > 0
+        ? Math.round((csat.reduce((s, c) => s + c.score, 0) / csat.length) * 20)
+        : 0;
 
-        const csatAvg = csat && csat.length > 0
-          ? Math.round((csat.reduce((s, c) => s + c.score, 0) / csat.length) * 20)
-          : 0;
-
-        agentPerf.push({
-          agentId: agent.id, agentName: agent.name,
-          totalTickets: total ?? 0, resolvedTickets: resolved ?? 0,
-          slaCompliance: total ? Math.round(((resolved ?? 0) / total) * 100) : 0,
-          csatAvg, kpis: kpis ?? [],
-        });
-      }
-      setAgentKPIs(agentPerf);
-      setLoading(false);
-    });
-  }, [selectedMonth, selectedYear]);
-
+      agentPerf.push({
+        agentId: agent.id, 
+        agentName: agent.name,
+        totalTickets: total ?? 0, 
+        resolvedTickets: resolved ?? 0,
+        slaCompliance: total ? Math.round(((resolved ?? 0) / total) * 100) : 0,
+        csatAvg, 
+        kpis: kpis ?? [],
+      });
+    }
+        setAgentKPIs(agentPerf);
+    setLoading(false);
+  });
+}, [selectedMonth, selectedYear]); 
+  
   const saveKPI = async (id: string) => {
     const supabase = createClient();
     await supabase.from("kpi_settings").update({ target: editValues.target, weight: editValues.weight, updated_at: new Date().toISOString() }).eq("id", id);
