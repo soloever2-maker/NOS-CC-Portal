@@ -425,11 +425,6 @@ export default function TicketsPage() {
                       <span className="font-mono text-xs font-bold" style={{ color: "var(--gold-400)" }}>
                         {ticket.code}
                       </span>
-                      {isOverdue && (
-                        <div className="mt-0.5">
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.15)", color: "var(--danger)" }}>OVERDUE</span>
-                        </div>
-                      )}
                     </td>
                     {/* Ticket title + reassignment */}
                     <td style={{ maxWidth: 220 }}>
