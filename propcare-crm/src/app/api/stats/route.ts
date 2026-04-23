@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
       slaMap[key] = s.hours;
     }
     const getSlaHours = (category: string, source: string | null): number | null => {
-      if (source && slaMap[`${category}:${source}`]) return slaMap[`${category}:${source}`];
+      if (source && slaMap[`${category}:${source}`]) return slaMap[`${category}:${source}`] ?? null;
       return slaMap[`${category}:default`] ?? null;
     };
 
