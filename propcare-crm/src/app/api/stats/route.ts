@@ -101,9 +101,11 @@ export async function GET(req: NextRequest) {
       if (!t.assigned_to_id) continue;
       const name = Array.isArray(t.assigned_to) ? (t.assigned_to[0]?.name ?? "Unknown") : (t.assigned_to as { name: string } | null)?.name ?? "Unknown";
       if (!agentMap[t.assigned_to_id]) agentMap[t.assigned_to_id] = { name, total: 0, resolved: 0, open: 0 };
-      agentMap[t.assigned_to_id].total++;
-      if (["RESOLVED", "CLOSED"].includes(t.status)) agentMap[t.assigned_to_id].resolved++;
-      if (["OPEN", "IN_PROGRESS", "PENDING_CLIENT"].includes(t.status)) agentMap[t.assigned_to_id].open++;
+      const entry = agentMap[t.assigned_to_id];
+      if (!entry) continue;
+      entry.total++;
+      if (["RESOLVED", "CLOSED"].includes(t.status)) entry.resolved++;
+      if (["OPEN", "IN_PROGRESS", "PENDING_CLIENT"].includes(t.status)) entry.open++;
     }
     const agentPerformance = Object.values(agentMap)
       .sort((a, b) => b.total - a.total)
