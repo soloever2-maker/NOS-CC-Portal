@@ -28,7 +28,7 @@ export default function LoginPage() {
       const supabase = createClient();
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) { setError(authError.message); return; }
-      router.push("/dashboard");
+      router.replace("/dashboard");
       router.refresh();
     } catch { setError("An unexpected error occurred. Please try again."); }
     finally { setLoading(false); }
