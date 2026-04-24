@@ -3,7 +3,7 @@
 import { PanelLeftClose, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Ticket, Users, Building2,
   BarChart3, Settings, LogOut, MessageSquare, Bell, Target, ShieldCheck, Star, Sparkles,
@@ -73,7 +73,6 @@ interface SidebarProps { user?: User | null; }
 
 export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "MANAGER";
   const NAV_SECTIONS = isAdmin ? ADMIN_NAV : AGENT_NAV;
 
@@ -120,10 +119,10 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapse
               {section.items.map((item) => {
                 const active = isActive(item.href);
                 return (
-                  <button key={item.href} onClick={() => router.replace(item.href)} className={cn("nav-item w-full", active && "active")}>
+                  <Link key={item.href} href={item.href} className={cn("nav-item", active && "active")}>
                     <item.icon className="w-4 h-4 shrink-0" style={{ color: active ? "var(--gold-500)" : "var(--text-muted)" }} />
                     <span>{item.label}</span>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
