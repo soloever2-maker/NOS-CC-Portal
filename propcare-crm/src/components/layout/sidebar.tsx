@@ -75,7 +75,6 @@ interface SidebarProps { user?: User | null; }
 export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const router = useRouter();
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "MANAGER";
   const NAV_SECTIONS = isAdmin ? ADMIN_NAV : AGENT_NAV;
 
