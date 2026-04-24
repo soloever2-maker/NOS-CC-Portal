@@ -18,6 +18,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { data, error } = await supabase.from("clients").update({
       name:        body.name        || undefined,
       phone:       body.phone       || undefined,
+      phone2:      body.phone2      !== undefined ? (body.phone2 || null) : undefined,
+      whatsapp:    body.whatsapp    !== undefined ? (body.whatsapp || null) : undefined,
+      referral_number: body.referral_number !== undefined ? (body.referral_number || null) : undefined,
       email:       body.email       || undefined,
       nationality: body.nationality || undefined,
       city:        body.city        || undefined,
