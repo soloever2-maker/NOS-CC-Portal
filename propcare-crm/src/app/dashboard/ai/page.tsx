@@ -7,10 +7,10 @@ import { Send, Bot, User, Sparkles, TrendingUp, AlertTriangle, Users, Lightbulb 
 interface Message { role: "user" | "assistant"; text: string; }
 
 const SUGGESTIONS = [
-  { icon: TrendingUp,    text: "إيه المشاكل المتكررة عندي دلوقتي؟" },
-  { icon: AlertTriangle, text: "فيه تيكتس متأخرة محتاجة attention فوري؟" },
-  { icon: Users,         text: "إيه أداء الأجنتس وعندهم مشاكل فين؟" },
-  { icon: Lightbulb,     text: "إيه توصياتك عشان أحسن الخدمة؟" },
+  { icon: TrendingUp,    text: "What are my most recurring issues right now?" },
+  { icon: AlertTriangle, text: "Any overdue tickets that need urgent attention?" },
+  { icon: Users,         text: "How are my agents performing? Any weak spots?" },
+  { icon: Lightbulb,     text: "What are your recommendations to improve service?" },
 ];
 
 export default function AIPage() {
@@ -58,7 +58,7 @@ export default function AIPage() {
 
   return (
     <div className="flex flex-col h-screen animate-fade-in">
-      <Topbar title="AI Assistant" subtitle="تحليل ذكي لبيانات الـ CRM" />
+      <Topbar title="AI Assistant" subtitle="Smart analysis of your CRM data" />
 
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
@@ -71,10 +71,10 @@ export default function AIPage() {
             </div>
             <div className="text-center">
               <h2 className="text-xl font-bold mb-1" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>
-                مساعد الـ CRM الذكي
+                CRM AI Assistant
               </h2>
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                بيشوف بياناتك الحية ويحللها ويقولك كل حاجة
+                Analyzes your live data and gives you actionable insights
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
@@ -143,7 +143,7 @@ export default function AIPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="اسأل عن أي حاجة في الـ CRM…"
+            placeholder="Ask anything about your CRM data…"
             rows={1}
             className="flex-1 crm-input text-sm resize-none py-2.5 px-3"
             style={{ direction: "rtl", minHeight: 42, maxHeight: 120 }}
@@ -159,7 +159,7 @@ export default function AIPage() {
           </button>
         </div>
         <p className="text-center text-[10px] mt-2" style={{ color: "var(--text-muted)" }}>
-          Enter للإرسال · Shift+Enter لسطر جديد
+          Enter to send · Shift+Enter for new line
         </p>
       </div>
     </div>
