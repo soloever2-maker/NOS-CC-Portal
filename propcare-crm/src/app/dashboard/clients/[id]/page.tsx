@@ -372,8 +372,37 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
   const [interactions, setInteractions] = useState<InteractionItem[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [showLink,     setShowLink]     = useState(false);
+  const [isAdmin,      setIsAdmin]      = useState(false);
+  const [editMode,     setEditMode]     = useState(false);
+  const [editForm,     setEditForm]     = useState<Partial<Client>>({});
+  const [editSaving,   setEditSaving]   = useState(false);
   const [downloading,  setDownloading]  = useState(false);
   const [showAllTkts,  setShowAllTkts]  = useState(false);
+
+  useEffect(() => {
+    supabase().auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase().from("users").select("role").eq("supabase_id", user.id).single();
+      if (data && ["ADMIN","SUPER_ADMIN"].includes(data.role)) setIsAdmin(true);
+    });
+  }, []);
+
+  const handleSaveClient = async () => {
+    if (!client) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setClient(prev => prev ? { ...prev, ...editForm } : prev);
+        setEditMode(false);
+      }
+    } finally { setEditSaving(false); }
+  };
 
   const loadProperties = async () => {
     const { data } = await supabase().from("client_units")
@@ -450,6 +479,11 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" asChild><Link href="/dashboard/clients"><ArrowLeft className="w-3.5 h-3.5" /> Back</Link></Button>
             <Button variant="outline" size="sm" onClick={handleDownload} loading={downloading}><Download className="w-3.5 h-3.5" /> Export</Button>
+            {isAdmin && !editMode && (
+              <Button variant="outline" size="sm" onClick={() => { setEditForm({ ...client }); setEditMode(true); }}>
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </Button>
+            )}
             <Button size="sm" asChild><Link href={`/dashboard/tickets/new?clientId=${client.id}`}><Plus className="w-3.5 h-3.5" /> New Ticket</Link></Button>
           </div>
         }
@@ -492,49 +526,102 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                   </a>
                 </div>
 
-                {/* All contact info */}
-                <div className="space-y-2 text-sm">
-                  {/* Primary phone */}
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
-                    <span style={{ color: "var(--text-secondary)" }}>{client.phone}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>Primary</span>
+                {/* Contact info — view or edit */}
+                {editMode ? (
+                  <div className="space-y-2.5">
+                    {[
+                      { key: "name",             label: "Full Name",        type: "text"  },
+                      { key: "phone",            label: "Primary Phone",    type: "tel"   },
+                      { key: "phone2",           label: "Secondary Phone",  type: "tel"   },
+                      { key: "whatsapp",         label: "WhatsApp",         type: "tel"   },
+                      { key: "referral_number",  label: "Referral",         type: "text"  },
+                      { key: "email",            label: "Email",            type: "email" },
+                      { key: "nationality",      label: "Nationality",      type: "text"  },
+                      { key: "id_number",        label: "ID Number",        type: "text"  },
+                      { key: "city",             label: "City",             type: "text"  },
+                      { key: "address",          label: "Address",          type: "text"  },
+                    ].map(f => (
+                      <div key={f.key}>
+                        <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{f.label}</p>
+                        <input
+                          type={f.type}
+                          className="crm-input w-full h-8 text-xs"
+                          value={(editForm as Record<string,string>)[f.key] ?? ""}
+                          onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        />
+                      </div>
+                    ))}
+                    <div>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Notes</p>
+                      <textarea
+                        className="crm-input w-full text-xs p-2 resize-none"
+                        rows={3}
+                        value={editForm.notes ?? ""}
+                        onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Tags (comma separated)</p>
+                      <input
+                        className="crm-input w-full h-8 text-xs"
+                        value={(editForm.tags ?? []).join(", ")}
+                        onChange={e => setEditForm(p => ({ ...p, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))}
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={handleSaveClient} disabled={editSaving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[8px] text-xs font-semibold transition-all"
+                        style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border-strong)" }}>
+                        <Pencil className="w-3 h-3" />{editSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button onClick={() => setEditMode(false)}
+                        className="flex-1 py-1.5 rounded-[8px] text-xs font-semibold"
+                        style={{ background: "var(--black-700)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                  {/* Secondary phone */}
-                  {client.phone2 && (
+                ) : (
+                  <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
                       <Phone className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
-                      <span style={{ color: "var(--text-secondary)" }}>{client.phone2}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background: "var(--black-600)", color: "var(--text-muted)" }}>Secondary</span>
+                      <span style={{ color: "var(--text-secondary)" }}>{client.phone}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>Primary</span>
                     </div>
-                  )}
-                  {/* Referral */}
-                  {client.referral_number && (
-                    <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
-                      <span style={{ color: "var(--text-secondary)" }}>{client.referral_number}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background: "rgba(59,130,246,0.1)", color: "var(--info)" }}>Referral</span>
-                    </div>
-                  )}
-                  {client.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
-                      <span className="truncate" style={{ color: "var(--text-secondary)" }}>{client.email}</span>
-                    </div>
-                  )}
-                  {client.id_number && (
-                    <div className="flex items-center gap-2">
-                      <Hash className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
-                      <span style={{ color: "var(--text-secondary)" }}>{client.id_number}</span>
-                    </div>
-                  )}
-                  {(client.address || client.city) && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
-                      <span style={{ color: "var(--text-secondary)" }}>{[client.address, client.city].filter(Boolean).join(", ")}</span>
-                    </div>
-                  )}
-                </div>
+                    {client.phone2 && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
+                        <span style={{ color: "var(--text-secondary)" }}>{client.phone2}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background: "var(--black-600)", color: "var(--text-muted)" }}>Secondary</span>
+                      </div>
+                    )}
+                    {client.referral_number && (
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
+                        <span style={{ color: "var(--text-secondary)" }}>{client.referral_number}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background: "rgba(59,130,246,0.1)", color: "var(--info)" }}>Referral</span>
+                      </div>
+                    )}
+                    {client.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
+                        <span className="truncate" style={{ color: "var(--text-secondary)" }}>{client.email}</span>
+                      </div>
+                    )}
+                    {client.id_number && (
+                      <div className="flex items-center gap-2">
+                        <Hash className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
+                        <span style={{ color: "var(--text-secondary)" }}>{client.id_number}</span>
+                      </div>
+                    )}
+                    {(client.address || client.city) && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
+                        <span style={{ color: "var(--text-secondary)" }}>{[client.address, client.city].filter(Boolean).join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
