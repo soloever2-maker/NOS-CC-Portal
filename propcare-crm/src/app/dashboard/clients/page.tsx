@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Plus, Search, Phone, Mail, MapPin, Users, AlertCircle, MoreHorizontal, Eye, Trash2, AlignJustify } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, Users, AlertCircle, MoreHorizontal, Eye, Trash2, AlignJustify, Pencil, X, Save, Upload, FileText } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,15 +21,21 @@ const TAG_COLORS: Record<string, "gold" | "medium" | "open" | "resolved"> = {
 };
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [view, setView] = useState<"table" | "cards">("table");
-  const [compact, setCompact] = useState(false);
+  const [clients,    setClients]    = useState<Client[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState("");
+  const [view,       setView]       = useState<"table" | "cards">("table");
+  const [compact,    setCompact]    = useState(false);
+  const [isAdmin,    setIsAdmin]    = useState(false);
+  const [editingId,  setEditingId]  = useState<string | null>(null);
+  const [editForm,   setEditForm]   = useState<Partial<Client>>({});
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("nos-compact-clients");
-    if (saved === "true") setCompact(true);
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("nos-compact-clients");
+      if (saved === "true") setCompact(true);
+    }
   }, []);
 
   const toggleCompact = () => {
@@ -51,6 +57,39 @@ export default function ClientsPage() {
   }, [search]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
+
+  useEffect(() => {
+    import("@/lib/supabase/client").then(({ createClient }) => {
+      const sb = createClient();
+      sb.auth.getUser().then(async ({ data: { user } }) => {
+        if (!user) return;
+        const { data } = await sb.from("users").select("role").eq("supabase_id", user.id).single();
+        if (data && ["ADMIN","SUPER_ADMIN"].includes(data.role)) setIsAdmin(true);
+      });
+    });
+  }, []);
+
+  const startEdit = (client: Client) => {
+    setEditingId(client.id);
+    setEditForm({ name: client.name, phone: client.phone, email: client.email ?? "", nationality: client.nationality ?? "", city: client.city ?? "", tags: client.tags });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/clients/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setClients(prev => prev.map(c => c.id === editingId ? { ...c, ...editForm } : c));
+        setEditingId(null);
+      }
+    } finally { setEditSaving(false); }
+  };
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
@@ -172,21 +211,80 @@ export default function ClientsPage() {
               <div className="col-span-full text-center py-16" style={{ color: "var(--text-muted)" }}>
                 <Users className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>No clients yet</p>
               </div>
-            ) : clients.map((client) => (
-              <Link key={client.id} href={`/dashboard/clients/${client.id}`}>
-                <div className="crm-card p-4 transition-all hover:border-[var(--border-strong)] hover:shadow-[0_0_20px_var(--gold-glow)] cursor-pointer group">
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <Avatar className="h-10 w-10"><AvatarFallback>{getInitials(client.name)}</AvatarFallback></Avatar>
+            ) : clients.map((client) => {
+              const isEditing = editingId === client.id;
+              return isEditing ? (
+                // ── Edit Card ──
+                <div key={client.id} className="crm-card p-4 space-y-3" style={{ border: "1px solid var(--gold-500)" }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-semibold" style={{ color: "var(--gold-500)" }}>EDITING</p>
+                    <button onClick={() => setEditingId(null)} style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Name</p>
+                      <input className="crm-input w-full h-8 text-sm" value={editForm.name ?? ""} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
+                    </div>
                     <div>
-                      <p className="font-semibold text-sm group-hover:text-[var(--gold-400)] transition-colors" style={{ color: "var(--text-primary)" }}>{client.name}</p>
-                      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{client.code}</p>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Phone</p>
+                      <input className="crm-input w-full h-8 text-sm" value={editForm.phone ?? ""} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Email</p>
+                      <input className="crm-input w-full h-8 text-sm" value={editForm.email ?? ""} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Nationality</p>
+                      <input className="crm-input w-full h-8 text-sm" value={editForm.nationality ?? ""} onChange={e => setEditForm(p => ({ ...p, nationality: e.target.value }))} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>City</p>
+                      <input className="crm-input w-full h-8 text-sm" value={editForm.city ?? ""} onChange={e => setEditForm(p => ({ ...p, city: e.target.value }))} />
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Tags (comma separated)</p>
+                      <input className="crm-input w-full h-8 text-sm"
+                        value={(editForm.tags ?? []).join(", ")}
+                        onChange={e => setEditForm(p => ({ ...p, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs mb-2" style={{ color: "var(--text-muted)" }}><Phone className="w-3 h-3" />{client.phone}</div>
-                  <div className="flex flex-wrap gap-1">{(client.tags ?? []).map(tag => <Badge key={tag} variant={TAG_COLORS[tag] ?? "outline"}>{tag}</Badge>)}</div>
+                  <div className="flex gap-2">
+                    <button onClick={handleSaveEdit} disabled={editSaving}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[8px] text-xs font-semibold transition-all"
+                      style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border-strong)" }}>
+                      <Save className="w-3 h-3" />{editSaving ? "Saving…" : "Save"}
+                    </button>
+                    <button onClick={() => setEditingId(null)}
+                      className="flex-1 py-1.5 rounded-[8px] text-xs font-semibold"
+                      style={{ background: "var(--black-700)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </Link>
-            ))}
+              ) : (
+                // ── Normal Card ──
+                <div key={client.id} className="crm-card p-4 transition-all hover:border-[var(--border-strong)] hover:shadow-[0_0_20px_var(--gold-glow)] group relative">
+                  {isAdmin && (
+                    <button onClick={() => startEdit(client)}
+                      className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-[6px] opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                  <Link href={`/dashboard/clients/${client.id}`}>
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <Avatar className="h-10 w-10"><AvatarFallback>{getInitials(client.name)}</AvatarFallback></Avatar>
+                      <div>
+                        <p className="font-semibold text-sm group-hover:text-[var(--gold-400)] transition-colors" style={{ color: "var(--text-primary)" }}>{client.name}</p>
+                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{client.code}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs mb-2" style={{ color: "var(--text-muted)" }}><Phone className="w-3 h-3" />{client.phone}</div>
+                    <div className="flex flex-wrap gap-1">{(client.tags ?? []).map(tag => <Badge key={tag} variant={TAG_COLORS[tag] ?? "outline"}>{tag}</Badge>)}</div>
+                  </Link>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
