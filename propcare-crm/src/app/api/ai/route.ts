@@ -93,9 +93,12 @@ ${(recentTickets ?? []).map(t => {
       generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
     };
 
-    const res = await fetch(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, {
+    const res = await fetch(GEMINI_API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY ?? "",
+      },
       body: JSON.stringify(body),
     });
 
