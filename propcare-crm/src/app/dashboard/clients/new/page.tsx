@@ -77,7 +77,7 @@ export default function NewClientPage() {
           relation: u.relation,
         });
       }
-      router.push(`/dashboard/clients/${clientId}`);
+      router.replace(`/dashboard/clients/${clientId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create client");
     } finally { setLoading(false); }
