@@ -217,7 +217,7 @@ export default function NewTicketPage() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
-      router.push("/dashboard/tickets");
+      router.replace("/dashboard/tickets");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create ticket");
     } finally { setLoading(false); }
