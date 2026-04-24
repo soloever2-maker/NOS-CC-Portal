@@ -3,7 +3,7 @@
 import { PanelLeftClose, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Ticket, Users, Building2,
   BarChart3, Settings, LogOut, MessageSquare, Bell, Target, ShieldCheck, Star, Sparkles,
@@ -73,6 +73,7 @@ interface SidebarProps { user?: User | null; }
 
 export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "MANAGER";
   const NAV_SECTIONS = isAdmin ? ADMIN_NAV : AGENT_NAV;
 
