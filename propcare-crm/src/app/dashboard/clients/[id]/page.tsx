@@ -519,7 +519,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                     style={{ background: "var(--black-700)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                     <Phone className="w-3.5 h-3.5" /> Call
                   </a>
-                  <a href={`https://wa.me/${(client.whatsapp ?? client.phone).replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer"
+                  <a href={`https://wa.me/${(() => { const raw = (client.whatsapp ?? client.phone).trim(); const digits = raw.replace(/\D/g,""); if (raw.startsWith("+")) return digits; if (digits.startsWith("0")) return "2" + digits; return digits; })()}`} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-medium flex-1 justify-center transition-all"
                     style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#22c55e" }}>
                     <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
