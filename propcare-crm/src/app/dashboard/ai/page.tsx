@@ -41,9 +41,10 @@ export default function AIPage() {
         }),
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: "assistant", text: data.text ?? "عذراً، حدث خطأ." }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", text: "عذراً، حدث خطأ في الاتصال." }]);
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setMessages(prev => [...prev, { role: "assistant", text: data.text ?? "Sorry, no response." }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: "assistant", text: `Error: ${err instanceof Error ? err.message : "Connection failed"}` }]);
     } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
