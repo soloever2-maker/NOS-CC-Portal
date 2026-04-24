@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
     const topCategories = Object.entries(catMap).sort((a,b) => b[1]-a[1]).slice(0,5);
 
     // ── Build system context ────────────────────────────
-    const systemPrompt = `أنت مساعد ذكي متخصص في تحليل بيانات CRM لشركة Nations of Sky العقارية.
-لديك وصول كامل للبيانات الحية وتقدر تحلل وتفسر وتقدم توصيات عملية.
-ردودك دايماً بالعربي، مختصرة وعملية ومباشرة.
+    const systemPrompt = `You are an intelligent CRM analyst assistant for Nations of Sky real estate company.
+You have access to live data and provide practical analysis and recommendations.
+Reply in the same language the user writes in (Arabic or English). Be concise and practical.
 البيانات الحالية:
 
 📊 **إحصائيات عامة:**
@@ -78,18 +78,18 @@ ${(recentTickets ?? []).map(t => {
   return `- [${t.code}] ${t.title} | ${t.status} | ${t.priority} | ${(client as {name?:string}|null)?.name ?? "—"}`;
 }).join("\n") || "لا يوجد"}`;
 
-    // ── Build conversation ──────────────────────────────
-    const contents = [
+    // Prepend system context to the first message
+    const contentsWithContext = [
+      { role: "user", parts: [{ text: systemPrompt + "\n\n---\n\nالسؤال: " + message }] },
+      { role: "model", parts: [{ text: "حاضر، هساعدك في تحليل البيانات." }] },
       ...(history ?? []).map((m: { role: string; text: string }) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.text }],
       })),
-      { role: "user", parts: [{ text: message }] },
     ];
 
     const body = {
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents,
+      contents: contentsWithContext,
       generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
     };
 
