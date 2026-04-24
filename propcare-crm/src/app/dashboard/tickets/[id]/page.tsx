@@ -257,7 +257,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       });
       const json = await res.json();
       if (json.success) {
-        setTicket(prev => prev ? { ...prev, ...editForm } : prev);
+        setTicket(prev => prev ? { ...prev, ...editForm, priority: editForm.priority as typeof prev.priority, category: editForm.category as typeof prev.category } : prev);
         setEditMode(false);
       }
     } finally { setEditSaving(false); }
