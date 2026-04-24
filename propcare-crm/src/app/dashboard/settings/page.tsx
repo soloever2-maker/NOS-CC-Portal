@@ -1,59 +1,102 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Bell, Shield, Users, Save, Send, AlertCircle, CheckCircle } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea, Label } from "@/components/ui/form-elements";
+import { Label } from "@/components/ui/form-elements";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/client";
+import { getInitials } from "@/lib/utils";
 
 const SECTIONS = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "invite", label: "Invite User", icon: Users },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "security", label: "Security", icon: Shield },
+  { id: "profile",       label: "Profile",       icon: User   },
+  { id: "invite",        label: "Invite User",   icon: Users  },
+  { id: "notifications", label: "Notifications", icon: Bell   },
+  { id: "security",      label: "Security",      icon: Shield },
 ];
 
 export default function SettingsPage() {
-  const [section, setSection] = useState("profile");
-  const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState({ name: "", email: "", phone: "", department: "", bio: "" });
+  const [section,  setSection]  = useState("profile");
+  const [saving,   setSaving]   = useState(false);
+  const [saveMsg,  setSaveMsg]  = useState<"success" | "error" | null>(null);
+  const [userRole, setUserRole] = useState("");
+
+  const [profile, setProfile] = useState({
+    id: "", name: "", email: "", phone: "", department: "",
+  });
 
   // Invite
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
-  const [inviteRole, setInviteRole] = useState("AGENT");
+  const [inviteEmail,  setInviteEmail]  = useState("");
+  const [inviteName,   setInviteName]   = useState("");
+  const [inviteRole,   setInviteRole]   = useState("AGENT");
   const [inviteStatus, setInviteStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [inviteError, setInviteError] = useState("");
+  const [inviteError,  setInviteError]  = useState("");
 
   // Security
-  const [newPassword, setNewPassword] = useState("");
+  const [newPassword,     setNewPassword]     = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordStatus, setPasswordStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [passwordStatus,  setPasswordStatus]  = useState<"idle" | "loading" | "success" | "error">("idle");
 
+  // ── Load current user profile ──────────────────────
+  useEffect(() => {
+    const sb = createClient();
+    sb.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await sb.from("users")
+        .select("id, name, email, phone, department, role")
+        .eq("supabase_id", user.id)
+        .single();
+      if (data) {
+        setProfile({
+          id:         data.id,
+          name:       data.name       ?? "",
+          email:      data.email      ?? "",
+          phone:      data.phone      ?? "",
+          department: data.department ?? "",
+        });
+        setUserRole(data.role ?? "");
+      }
+    });
+  }, []);
+
+  // ── Save profile ────────────────────────────────────
   const handleSaveProfile = async () => {
+    if (!profile.id) return;
     setSaving(true);
-    await new Promise(r => setTimeout(r, 800));
-    setSaving(false);
+    setSaveMsg(null);
+    try {
+      const sb = createClient();
+      const { error } = await sb.from("users").update({
+        name:       profile.name,
+        phone:      profile.phone       || null,
+        department: profile.department  || null,
+      }).eq("id", profile.id);
+      if (error) throw error;
+      setSaveMsg("success");
+    } catch {
+      setSaveMsg("error");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveMsg(null), 3000);
+    }
   };
 
+  // ── Invite ──────────────────────────────────────────
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteStatus("loading");
     setInviteError("");
-
     if (!inviteEmail.endsWith("@nationsofsky.com")) {
       setInviteError("Only @nationsofsky.com emails are allowed");
       setInviteStatus("error");
       return;
     }
-
     try {
-      const res = await fetch("/api/auth/invite", {
+      const res  = await fetch("/api/auth/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail, name: inviteName, role: inviteRole }),
@@ -61,38 +104,46 @@ export default function SettingsPage() {
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
       setInviteStatus("success");
-      setInviteEmail("");
-      setInviteName("");
+      setInviteEmail(""); setInviteName("");
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : "Failed to send invite");
       setInviteStatus("error");
     }
   };
 
+  // ── Change password ─────────────────────────────────
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newPassword.length < 8)         { setPasswordStatus("error"); return; }
     if (newPassword !== confirmPassword) { setPasswordStatus("error"); return; }
     setPasswordStatus("loading");
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await createClient().auth.updateUser({ password: newPassword });
       if (error) throw error;
       setPasswordStatus("success");
       setNewPassword(""); setConfirmPassword("");
+      setTimeout(() => setPasswordStatus("idle"), 3000);
     } catch { setPasswordStatus("error"); }
   };
+
+  const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(userRole);
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
       <Topbar title="Settings" subtitle="Manage your account and preferences" />
       <div className="flex-1 p-6">
         <div className="flex gap-6 max-w-4xl">
-          {/* Sidebar */}
+
+          {/* Sidebar nav */}
           <div className="w-48 shrink-0">
             <nav className="space-y-0.5">
-              {SECTIONS.map((s) => (
+              {SECTIONS.filter(s => s.id !== "invite" || isAdmin).map(s => (
                 <button key={s.id} onClick={() => setSection(s.id)} className="nav-item w-full"
-                  style={{ background: section === s.id ? "rgba(201,168,76,0.2)" : "transparent", color: section === s.id ? "var(--gold-500)" : "var(--text-secondary)", border: section === s.id ? "0.5px solid var(--gold-500)" : "0.5px solid transparent" }}>
+                  style={{
+                    background: section === s.id ? "rgba(201,168,76,0.2)" : "transparent",
+                    color: section === s.id ? "var(--gold-500)" : "var(--text-secondary)",
+                    border: section === s.id ? "0.5px solid var(--gold-500)" : "0.5px solid transparent",
+                  }}>
                   <s.icon className="w-4 h-4" />{s.label}
                 </button>
               ))}
@@ -102,55 +153,86 @@ export default function SettingsPage() {
           {/* Content */}
           <div className="flex-1 space-y-4">
 
-            {/* Profile */}
+            {/* ── Profile ── */}
             {section === "profile" && (
               <>
                 <Card>
-                  <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>PROFILE INFORMATION</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>PROFILE INFORMATION</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center gap-4 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
-                      <Avatar className="h-16 w-16">
-                        <AvatarFallback className="text-lg">NOS</AvatarFallback>
+                      <Avatar className="h-14 w-14">
+                        <AvatarFallback className="text-base font-bold" style={{ background: "var(--gold-glow)", color: "var(--gold-500)" }}>
+                          {getInitials(profile.name || "?")}
+                        </AvatarFallback>
                       </Avatar>
-                      <Button variant="secondary" size="sm">Change Photo</Button>
+                      <div>
+                        <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{profile.name || "—"}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{userRole?.replace("_", " ")}</p>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><Label className="mb-1.5 block">Full Name</Label><Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Your name" /></div>
-                      <div><Label className="mb-1.5 block">Email</Label><Input type="email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} placeholder="you@nationsofsky.com" /></div>
-                      <div><Label className="mb-1.5 block">Phone</Label><Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+20 10 0000 0000" /></div>
-                      <div><Label className="mb-1.5 block">Department</Label><Input value={profile.department} onChange={e => setProfile(p => ({ ...p, department: e.target.value }))} placeholder="Customer Care" /></div>
+                      <div>
+                        <Label className="mb-1.5 block">Full Name</Label>
+                        <Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Your name" />
+                      </div>
+                      <div>
+                        <Label className="mb-1.5 block">Email</Label>
+                        <Input value={profile.email} disabled style={{ opacity: 0.5 }} />
+                        <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>Email cannot be changed</p>
+                      </div>
+                      <div>
+                        <Label className="mb-1.5 block">Phone</Label>
+                        <Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+20 10 0000 0000" />
+                      </div>
+                      <div>
+                        <Label className="mb-1.5 block">Department</Label>
+                        <Input value={profile.department} onChange={e => setProfile(p => ({ ...p, department: e.target.value }))} placeholder="Customer Care" />
+                      </div>
                     </div>
-                    <div><Label className="mb-1.5 block">Bio</Label><Textarea value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} placeholder="Brief description…" rows={3} /></div>
                   </CardContent>
                 </Card>
-                <Button onClick={handleSaveProfile} loading={saving}><Save className="w-4 h-4" />{saving ? "Saving…" : "Save Changes"}</Button>
+
+                {saveMsg === "success" && (
+                  <div className="flex items-center gap-2 p-3 rounded-[8px] text-sm" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "var(--success)" }}>
+                    <CheckCircle className="w-4 h-4" /> Profile saved successfully
+                  </div>
+                )}
+                {saveMsg === "error" && (
+                  <div className="flex items-center gap-2 p-3 rounded-[8px] text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--danger)" }}>
+                    <AlertCircle className="w-4 h-4" /> Failed to save profile
+                  </div>
+                )}
+                <Button onClick={handleSaveProfile} loading={saving}>
+                  <Save className="w-4 h-4" />{saving ? "Saving…" : "Save Changes"}
+                </Button>
               </>
             )}
 
-            {/* Invite User */}
-            {section === "invite" && (
+            {/* ── Invite ── */}
+            {section === "invite" && isAdmin && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>INVITE NEW USER</CardTitle>
+                  <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>INVITE NEW USER</CardTitle>
                   <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                    Only <span style={{ color: "var(--gold-400)" }}>@nationsofsky.com</span> emails are allowed. The user will receive an invite link valid for 3 minutes.
+                    Only <span style={{ color: "var(--gold-400)" }}>@nationsofsky.com</span> emails are allowed.
                   </p>
                 </CardHeader>
                 <CardContent>
                   {inviteStatus === "success" && (
                     <div className="flex items-center gap-2 p-3 rounded-[8px] mb-4 text-sm" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "var(--success)" }}>
-                      <CheckCircle className="w-4 h-4 shrink-0" />
-                      Invite sent! The user will receive an email shortly.
+                      <CheckCircle className="w-4 h-4 shrink-0" /> Invite sent successfully!
                     </div>
                   )}
                   {inviteStatus === "error" && inviteError && (
                     <div className="flex items-center gap-2 p-3 rounded-[8px] mb-4 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--danger)" }}>
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      {inviteError}
+                      <AlertCircle className="w-4 h-4 shrink-0" /> {inviteError}
                     </div>
                   )}
                   <form onSubmit={handleInvite} className="space-y-3">
-                    <div><Label className="mb-1.5 block">Full Name *</Label><Input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Ahmed Mohamed" required /></div>
+                    <div>
+                      <Label className="mb-1.5 block">Full Name *</Label>
+                      <Input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Ahmed Mohamed" required />
+                    </div>
                     <div>
                       <Label className="mb-1.5 block">Email Address *</Label>
                       <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="ahmed@nationsofsky.com" required />
@@ -168,48 +250,47 @@ export default function SettingsPage() {
                     </div>
                     <Button type="submit" loading={inviteStatus === "loading"} className="w-full">
                       <Send className="w-4 h-4" />
-                      {inviteStatus === "loading" ? "Sending invite…" : "Send Invite"}
+                      {inviteStatus === "loading" ? "Sending…" : "Send Invite"}
                     </Button>
                   </form>
                 </CardContent>
               </Card>
             )}
 
-            {/* Notifications */}
+            {/* ── Notifications ── */}
             {section === "notifications" && (
               <Card>
-                <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>NOTIFICATION PREFERENCES</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-2 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
-                    <span className="text-xs font-semibold col-span-1" style={{ color: "var(--text-muted)" }}>Event</span>
+                <CardHeader><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>NOTIFICATION PREFERENCES</CardTitle></CardHeader>
+                <CardContent className="space-y-0">
+                  <div className="grid grid-cols-3 gap-2 pb-2 mb-2" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>Event</span>
                     <span className="text-xs font-semibold text-center" style={{ color: "var(--text-muted)" }}>Email</span>
                     <span className="text-xs font-semibold text-center" style={{ color: "var(--text-muted)" }}>In-app</span>
                   </div>
                   {[
-                    { label: "Ticket assigned to me", desc: "When a ticket is assigned to you" },
-                    { label: "Ticket status changes", desc: "When status changes on your tickets" },
-                    { label: "New comments", desc: "When someone comments on your tickets" },
-                    { label: "Mentions", desc: "When someone mentions you in a comment" },
-                    { label: "System announcements", desc: "Important platform updates" },
-                  ].map((item, i) => (
-                    <div key={i} className="grid grid-cols-3 items-center gap-2 py-2" style={{ borderBottom: "1px solid var(--border)" }}>
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{item.label}</p>
-                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{item.desc}</p>
-                      </div>
+                    "Ticket assigned to me",
+                    "Ticket status changes",
+                    "New comments",
+                    "Mentions",
+                    "System announcements",
+                  ].map((label, i) => (
+                    <div key={i} className="grid grid-cols-3 items-center gap-2 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <p className="text-sm" style={{ color: "var(--text-primary)" }}>{label}</p>
                       <div className="flex justify-center"><input type="checkbox" defaultChecked className="accent-[var(--gold-500)] w-4 h-4 cursor-pointer" /></div>
                       <div className="flex justify-center"><input type="checkbox" defaultChecked className="accent-[var(--gold-500)] w-4 h-4 cursor-pointer" /></div>
                     </div>
                   ))}
-                  <Button onClick={handleSaveProfile} loading={saving}><Save className="w-4 h-4" />Save Preferences</Button>
+                  <div className="pt-4">
+                    <Button size="sm"><Save className="w-3.5 h-3.5" />Save Preferences</Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Security */}
+            {/* ── Security ── */}
             {section === "security" && (
               <Card>
-                <CardHeader><CardTitle className="text-sm" style={{ color: "var(--text-secondary)" }}>CHANGE PASSWORD</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>CHANGE PASSWORD</CardTitle></CardHeader>
                 <CardContent>
                   {passwordStatus === "success" && (
                     <div className="flex items-center gap-2 p-3 rounded-[8px] mb-4 text-sm" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "var(--success)" }}>
@@ -218,13 +299,21 @@ export default function SettingsPage() {
                   )}
                   {passwordStatus === "error" && (
                     <div className="p-3 rounded-[8px] mb-4 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--danger)" }}>
-                      Passwords don't match or an error occurred.
+                      Passwords don&apos;t match or too short (min 8 chars).
                     </div>
                   )}
-                  <form onSubmit={handlePasswordChange} className="space-y-3">
-                    <div><Label className="mb-1.5 block">New Password</Label><Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 8 characters" required /></div>
-                    <div><Label className="mb-1.5 block">Confirm Password</Label><Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat new password" required /></div>
-                    <Button type="submit" loading={passwordStatus === "loading"}><Save className="w-4 h-4" />Update Password</Button>
+                  <form onSubmit={handlePasswordChange} className="space-y-3 max-w-sm">
+                    <div>
+                      <Label className="mb-1.5 block">New Password</Label>
+                      <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 8 characters" required />
+                    </div>
+                    <div>
+                      <Label className="mb-1.5 block">Confirm Password</Label>
+                      <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat new password" required />
+                    </div>
+                    <Button type="submit" loading={passwordStatus === "loading"}>
+                      <Save className="w-4 h-4" />Update Password
+                    </Button>
                   </form>
                 </CardContent>
               </Card>
