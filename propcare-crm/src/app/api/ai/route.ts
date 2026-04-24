@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,16 +77,6 @@ ${(recentTickets ?? []).map(t => {
   const client = Array.isArray(t.client) ? t.client[0] : t.client;
   return `- [${t.code}] ${t.title} | ${t.status} | ${t.priority} | ${(client as {name?:string}|null)?.name ?? "—"}`;
 }).join("\n") || "لا يوجد"}`;
-
-    // Prepend system context to the first message
-    const contentsWithContext = [
-      { role: "user", parts: [{ text: systemPrompt + "\n\n---\n\nالسؤال: " + message }] },
-      { role: "model", parts: [{ text: "حاضر، هساعدك في تحليل البيانات." }] },
-      ...(history ?? []).map((m: { role: string; text: string }) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.text }],
-      })),
-    ];
 
     const body = {
       contents: contentsWithContext,
