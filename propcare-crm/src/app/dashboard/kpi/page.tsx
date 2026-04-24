@@ -37,8 +37,8 @@ export default function KPIDashboardPage() {
 useEffect(() => {
   const supabase = createClient();
   Promise.all([
-    supabase.from("kpl_settings").select("*"),
-    supabase.from("users").select("id, name, email, role").eq("is_active", true).eq("role", "AGENT"),
+    supabase.from("kpi_settings").select("*"),
+    supabase.from("users").select("id, name, email, role").eq("is_active", true).in("role", ["AGENT", "MANAGER"]),
   ]).then(async ([{ data: kpis }, { data: agentList }]) => {
     
     setKpiSettings(kpis ?? []);
