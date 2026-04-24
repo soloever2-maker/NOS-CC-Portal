@@ -124,17 +124,20 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   }, [params.id]);
 
   const handleStatusChange = async (status: TicketStatus) => {
-    const supabase = createClient();
-    const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-    if (status === "RESOLVED") updates.resolved_at = new Date().toISOString();
-    if (status === "CLOSED") updates.closed_at = new Date().toISOString();
-    await supabase.from("tickets").update(updates).eq("id", params.id);
+    await fetch(`/api/tickets/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
     setCurrentStatus(status);
   };
 
   const handleContactStatus = async (cs: ContactStatus) => {
-    const supabase = createClient();
-    await supabase.from("tickets").update({ contact_status: cs, updated_at: new Date().toISOString() }).eq("id", params.id);
+    await fetch(`/api/tickets/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactStatus: cs }),
+    });
     setContactStatus(cs);
   };
 
@@ -144,7 +147,11 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     const agent = agents.find(a => a.id === agentId) ?? null;
     const previousAgentId = assignedTo?.id ?? null;
 
-    await supabase.from("tickets").update({ assigned_to_id: agentId, updated_at: new Date().toISOString() }).eq("id", params.id);
+    await fetch(`/api/tickets/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignedToId: agentId }),
+    });
 
     // Log reassignment in ticket_history
     if (myUserId) {
@@ -200,7 +207,11 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const handleSLA = async (hours: number) => {
     setSlaSaving(true);
     const supabase = createClient();
-    await supabase.from("tickets").update({ sla_hours: hours, updated_at: new Date().toISOString() }).eq("id", params.id);
+    await fetch(`/api/tickets/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slaHours: hours }),
+    });
     setSlaHours(hours);
     setSlaSaving(false);
   };
