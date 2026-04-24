@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Star, TrendingUp, Award, AlertCircle, ChevronDown } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatRelativeTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
 interface CSATEntry {
@@ -35,22 +34,20 @@ export default function CSATPage() {
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
     setLoading(true);
-
-    let query = supabase
-      .from("csat_scores")
-      .select("*, ticket:tickets(id, code, title), agent:users(id, name)")
-      .eq("month", filterMonth)
-      .eq("year", filterYear)
-      .order("created_at", { ascending: false });
-
-    if (filterAgent !== "ALL") query = query.eq("agent_id", filterAgent);
-
-    query.then(({ data }) => {
-      setEntries(data ?? []);
-      setLoading(false);
+    const params = new URLSearchParams({
+      month: String(filterMonth),
+      year:  String(filterYear),
     });
+    if (filterAgent !== "ALL") params.set("agentId", filterAgent);
+
+    fetch(`/api/csat?${params}`)
+      .then(r => r.json())
+      .then(json => {
+        setEntries(json.success ? json.data : []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [filterMonth, filterYear, filterAgent]);
 
   // Aggregate stats
