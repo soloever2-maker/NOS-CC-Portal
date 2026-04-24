@@ -28,8 +28,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body.priority)      updates.priority       = body.priority;
     if (body.status)        updates.status         = body.status;
     if (body.project)       updates.project        = body.project;
-    if (body.tags)          updates.tags           = body.tags;
-    if (body.unitId !== undefined) updates.unit_id = body.unitId || null;
+    if (body.tags)                        updates.tags           = body.tags;
+    if (body.unitId !== undefined)        updates.unit_id        = body.unitId || null;
+    if (body.contactStatus !== undefined) updates.contact_status = body.contactStatus;
+    if (body.slaHours !== undefined)      updates.sla_hours      = body.slaHours;
     if (body.assignedToId !== undefined && isAdmin) updates.assigned_to_id = body.assignedToId || null;
     if (body.status === "RESOLVED") updates.resolved_at = new Date().toISOString();
     if (body.status === "CLOSED")   updates.closed_at   = new Date().toISOString();
