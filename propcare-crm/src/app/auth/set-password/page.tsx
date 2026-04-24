@@ -37,7 +37,7 @@ export default function SetPasswordPage() {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
       setDone(true);
-      setTimeout(() => router.push("/dashboard"), 2000);
+      setTimeout(() => router.replace("/dashboard"), 2000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to set password");
     } finally {
