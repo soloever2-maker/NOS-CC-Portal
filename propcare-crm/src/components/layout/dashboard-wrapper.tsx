@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { SplashScreen } from "@/components/layout/splash-screen";
+import { NotificationProvider } from "@/lib/notification-context";
 
 const SPLASH_KEY = "nos_splash_shown";
 
@@ -9,11 +10,8 @@ export function DashboardWrapper({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(false);
 
   useEffect(() => {
-    // Show splash only once per session
     const shown = sessionStorage.getItem(SPLASH_KEY);
-    if (!shown) {
-      setShowSplash(true);
-    }
+    if (!shown) setShowSplash(true);
   }, []);
 
   const handleDone = useCallback(() => {
@@ -22,9 +20,9 @@ export function DashboardWrapper({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <>
+    <NotificationProvider>
       {showSplash && <SplashScreen onDone={handleDone} />}
       {children}
-    </>
+    </NotificationProvider>
   );
 }
