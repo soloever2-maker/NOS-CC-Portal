@@ -193,11 +193,21 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       if (!user) return;
       const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
       if (!profile) return;
-      await supabase.from("csat_scores").upsert({
-        ticket_id: params.id, agent_id: assignedTo?.id ?? profile.id,
-        score: csatScore, notes: csatNotes,
-        month: new Date().getMonth() + 1, year: new Date().getFullYear(),
-      }, { onConflict: "ticket_id" });
+      const { data: existing } = await supabase.from("csat_scores")
+        .select("id").eq("ticket_id", params.id).maybeSingle();
+
+      if (existing) {
+        await supabase.from("csat_scores").update({
+          score: csatScore, notes: csatNotes,
+          month: new Date().getMonth() + 1, year: new Date().getFullYear(),
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("csat_scores").insert({
+          ticket_id: params.id, agent_id: assignedTo?.id ?? profile.id,
+          score: csatScore, notes: csatNotes,
+          month: new Date().getMonth() + 1, year: new Date().getFullYear(),
+        });
+      }
       setExistingCsat({ score: csatScore, notes: csatNotes });
       setCsatSaved(true);
       setTimeout(() => setCsatSaved(false), 3000);
