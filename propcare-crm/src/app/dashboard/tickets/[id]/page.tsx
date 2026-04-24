@@ -74,6 +74,9 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [csatScore, setCsatScore] = useState<number | null>(null);
   const [csatNotes, setCsatNotes] = useState("");
   const [csatSaving, setCsatSaving] = useState(false);
+  const [editMode,   setEditMode]   = useState(false);
+  const [editForm,   setEditForm]   = useState<{ title: string; description: string; category: string; priority: string }>({ title: "", description: "", category: "", priority: "" });
+  const [editSaving, setEditSaving] = useState(false);
   const [csatSaved, setCsatSaved] = useState(false);
   const [existingCsat, setExistingCsat] = useState<{ score: number; notes?: string } | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -222,6 +225,23 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
   const csContact = contactStatus ? CONTACT_STATUS_COLORS[contactStatus] : null;
 
+  const handleSaveEdit = async () => {
+    if (!ticket) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setTicket(prev => prev ? { ...prev, ...editForm } : prev);
+        setEditMode(false);
+      }
+    } finally { setEditSaving(false); }
+  };
+
   if (loading) return (
     <div className="flex flex-col min-h-screen animate-fade-in">
       <Topbar title="Loading…" />
@@ -237,7 +257,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
-      <Topbar title={ticket.code} subtitle={ticket.title}
+      <Topbar title={ticket.code} subtitle={editMode ? "Editing…" : ticket.title}
         actions={<Button variant="ghost" size="sm" asChild><Link href="/dashboard/tickets"><ArrowLeft className="w-3.5 h-3.5" /> Back</Link></Button>}
       />
       <div className="flex-1 p-5">
@@ -265,8 +285,62 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     </span>
                   )}
                 </div>
-                <h2 className="text-xl font-semibold mb-3" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>{ticket.title}</h2>
-                <div className="text-sm whitespace-pre-line leading-relaxed" style={{ color: "var(--text-secondary)" }}>{ticket.description}</div>
+                {editMode ? (
+                  <div className="space-y-3 mt-3">
+                    <div>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Title</p>
+                      <input className="crm-input w-full h-8 text-sm font-semibold" value={editForm.title}
+                        onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Description</p>
+                      <textarea className="crm-input w-full text-sm p-2 resize-none" rows={5} value={editForm.description}
+                        onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Category</p>
+                        <select className="crm-input w-full h-8 text-sm" value={editForm.category}
+                          onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}>
+                          {["MAINTENANCE","COMPLAINT","INQUIRY","PAYMENT","LEASE","HANDOVER","OTHER"].map(c =>
+                            <option key={c} value={c}>{c.charAt(0)+c.slice(1).toLowerCase()}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>Priority</p>
+                        <select className="crm-input w-full h-8 text-sm" value={editForm.priority}
+                          onChange={e => setEditForm(p => ({ ...p, priority: e.target.value }))}>
+                          {["LOW","MEDIUM","HIGH","URGENT"].map(p =>
+                            <option key={p} value={p}>{p.charAt(0)+p.slice(1).toLowerCase()}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveEdit} disabled={editSaving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[8px] text-xs font-semibold"
+                        style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border-strong)" }}>
+                        {editSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button onClick={() => setEditMode(false)}
+                        className="flex-1 py-1.5 rounded-[8px] text-xs font-semibold"
+                        style={{ background: "var(--black-700)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mt-2 mb-1">
+                      <h2 className="text-xl font-semibold" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>{ticket.title}</h2>
+                      <button onClick={() => { setEditForm({ title: ticket.title, description: ticket.description, category: ticket.category, priority: ticket.priority }); setEditMode(true); }}
+                        className="w-6 h-6 flex items-center justify-center rounded-[6px] shrink-0 ml-2"
+                        style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                      </button>
+                    </div>
+                    <div className="text-sm whitespace-pre-line leading-relaxed" style={{ color: "var(--text-secondary)" }}>{ticket.description}</div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
