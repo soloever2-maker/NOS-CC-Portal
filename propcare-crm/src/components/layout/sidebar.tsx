@@ -93,8 +93,8 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapse
 
   return (
     <aside
-      className="sidebar flex-col fixed left-0 top-0 h-screen z-40"
-      style={{ width: collapsed ? 0 : 260, overflow: "hidden", transition: "width 0.25s ease", display: "flex" }}
+      className="sidebar fixed left-0 top-0 h-screen z-40"
+      style={{ width: collapsed ? 0 : 260, overflow: "hidden", transition: "width 0.25s ease", display: "flex", flexDirection: "column" }}
     >
       <div className="px-5 py-5 border-b" style={{ borderColor: "var(--border)", minWidth: 260, flexShrink: 0 }}>
         <div className="flex items-center gap-3">
@@ -130,8 +130,6 @@ export function Sidebar({ user, collapsed, onToggle }: SidebarProps & { collapse
           </div>
         ))}
       </nav>
-
-      <div className="gold-divider" />
 
       {/* Collapse Button */}
       <div className="px-3 py-2" style={{ minWidth: 260, borderBottom: "1px solid var(--border)" }}>
