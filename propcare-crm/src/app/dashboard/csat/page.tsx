@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Star, TrendingUp, Award, AlertCircle, ChevronDown } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatRelativeTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-
 interface CSATEntry {
   id: string; score: number; notes?: string | null; month: number; year: number; created_at: string;
   ticket: { id: string; code: string; title: string } | null;
