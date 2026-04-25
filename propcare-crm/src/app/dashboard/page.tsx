@@ -13,7 +13,7 @@ import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, type TicketStatus, type T
 interface SLAStats { within: number; atRisk: number; overdue: number; complianceRate: number | null; resolvedWithinSLA: number; resolvedBreached: number; }
 interface Stats {
   totalTickets: number; openTickets: number; inProgress: number;
-  resolvedToday: number; totalClients: number; totalProperties: number;
+  resolvedToday: number; totalClients: number;
   byStatus: Record<string, number>; byCategory: Record<string, number>;
   sla: SLAStats;
 }
@@ -58,7 +58,6 @@ export default function DashboardPage() {
     { label: "In Progress", value: stats?.inProgress ?? 0, icon: Clock, color: "var(--warning)" },
     { label: "Resolved Today", value: stats?.resolvedToday ?? 0, icon: CheckCircle, color: "var(--success)" },
     { label: "Clients", value: stats?.totalClients ?? 0, icon: Users, color: "var(--info)" },
-    { label: "Properties", value: stats?.totalProperties ?? 0, icon: Building2, color: "var(--gold-400)" },
   ];
 
   const categoryData = Object.entries(stats?.byCategory ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
