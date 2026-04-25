@@ -146,7 +146,7 @@ export default function DashboardPage() {
       bg: "rgba(220,38,38,0.06)",
       border: "rgba(220,38,38,0.18)",
       href: "/dashboard/tickets?status=OPEN",
-      hint: "تذاكر جديدة لم يبدأ العمل عليها",
+      hint: "needs action",
     },
     {
       label: "In Progress",
@@ -156,7 +156,7 @@ export default function DashboardPage() {
       bg: "rgba(217,119,6,0.06)",
       border: "rgba(217,119,6,0.18)",
       href: "/dashboard/tickets?status=IN_PROGRESS",
-      hint: "جاري العمل عليها الآن",
+      hint: "being worked on",
     },
     {
       label: "Pending Client",
@@ -166,7 +166,7 @@ export default function DashboardPage() {
       bg: "rgba(37,99,235,0.06)",
       border: "rgba(37,99,235,0.18)",
       href: "/dashboard/tickets?status=PENDING_CLIENT",
-      hint: "بتستنى رد من العميل",
+      hint: "waiting for client response",
     },
     {
       label: "Resolved ✅",
@@ -176,7 +176,7 @@ export default function DashboardPage() {
       bg: "rgba(22,163,74,0.06)",
       border: "rgba(22,163,74,0.18)",
       href: "/dashboard/tickets?status=RESOLVED",
-      hint: "اتحلت في وقت الـ SLA",
+      hint: "resolved within SLA time",
     },
     {
       label: "Resolved ❌",
@@ -186,7 +186,7 @@ export default function DashboardPage() {
       bg: "rgba(220,38,38,0.06)",
       border: "rgba(220,38,38,0.18)",
       href: "/dashboard/tickets?status=RESOLVED",
-      hint: "اتحلت بعد وقت الـ SLA",
+      hint: "resolved after SLA deadline",
     },
     {
       label: "Closed",
@@ -196,7 +196,7 @@ export default function DashboardPage() {
       bg: "rgba(107,114,128,0.06)",
       border: "rgba(107,114,128,0.18)",
       href: "/dashboard/tickets?status=CLOSED",
-      hint: "مغلقة نهائياً",
+      hint: "permanently closed",
     },
   ];
 
@@ -240,7 +240,7 @@ export default function DashboardPage() {
               </button>
             ))}
             <span style={{fontSize:12,color:"var(--text-muted)",marginRight:"auto"}}>
-              عارض: <strong style={{color:"var(--text-primary)"}}>{periodLabel}</strong>
+              Showing: <strong style={{color:"var(--text-primary)"}}>{periodLabel}</strong>
             </span>
           </div>
 
@@ -248,12 +248,12 @@ export default function DashboardPage() {
           {showCustom && (
             <div className="flex items-center gap-3 mt-3 pt-3" style={{borderTop:"1px solid var(--border)"}}>
               <div className="flex items-center gap-2">
-                <label style={{fontSize:12,color:"var(--text-muted)"}}>من:</label>
+                <label style={{fontSize:12,color:"var(--text-muted)"}}>From:</label>
                 <input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)}
                   style={{padding:"4px 8px",borderRadius:8,border:"1px solid var(--border)",background:"var(--surface2)",color:"var(--text-primary)",fontSize:13}}/>
               </div>
               <div className="flex items-center gap-2">
-                <label style={{fontSize:12,color:"var(--text-muted)"}}>إلى:</label>
+                <label style={{fontSize:12,color:"var(--text-muted)"}}>To:</label>
                 <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)}
                   style={{padding:"4px 8px",borderRadius:8,border:"1px solid var(--border)",background:"var(--surface2)",color:"var(--text-primary)",fontSize:13}}/>
               </div>
@@ -292,16 +292,16 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5" style={{color:"var(--gold-500)"}}/>
-              <h2 className="text-sm font-bold" style={{color:"var(--text-primary)"}}>SLA — التذاكر المفتوحة</h2>
+              <h2 className="text-sm font-bold" style={{color:"var(--text-primary)"}}>SLA — Active Tickets</h2>
             </div>
             {isAdmin && <Link href="/dashboard/sla" className="text-xs" style={{color:"var(--gold-500)"}}>Manage SLA →</Link>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
-              { label:"Within SLA",   sub:"شغالة وفي الوقت",          val: sla?.within  ?? 0, icon: ShieldCheck, color:"#16a34a", bg:"rgba(22,163,74,0.06)",   border:"rgba(22,163,74,0.18)",   href:"/dashboard/tickets?status=OPEN" },
-              { label:"At Risk",      sub:"هتتأخر لو مأتردتش",         val: sla?.atRisk  ?? 0, icon: ShieldAlert, color:"#d97706", bg:"rgba(217,119,6,0.06)",  border:"rgba(217,119,6,0.18)",  href:"/dashboard/tickets?status=IN_PROGRESS" },
-              { label:"SLA Breached", sub:"فات وقتها ومحتاجة action",  val: sla?.overdue ?? 0, icon: ShieldX,     color:"#dc2626", bg:"rgba(220,38,38,0.06)",  border:"rgba(220,38,38,0.18)",  href:"/dashboard/tickets" },
+              { label:"Within SLA",   sub:"active & on track",          val: sla?.within  ?? 0, icon: ShieldCheck, color:"#16a34a", bg:"rgba(22,163,74,0.06)",   border:"rgba(22,163,74,0.18)",   href:"/dashboard/tickets?status=OPEN" },
+              { label:"At Risk",      sub:"75%+ of SLA used",         val: sla?.atRisk  ?? 0, icon: ShieldAlert, color:"#d97706", bg:"rgba(217,119,6,0.06)",  border:"rgba(217,119,6,0.18)",  href:"/dashboard/tickets?status=IN_PROGRESS" },
+              { label:"SLA Breached", sub:"exceeded time limit",  val: sla?.overdue ?? 0, icon: ShieldX,     color:"#dc2626", bg:"rgba(220,38,38,0.06)",  border:"rgba(220,38,38,0.18)",  href:"/dashboard/tickets" },
             ].map(s => (
               <Link key={s.label} href={s.href}
                 className="flex items-center gap-3 p-3 rounded-[10px] transition-all hover:scale-[1.01]"
@@ -338,14 +338,14 @@ export default function DashboardPage() {
                   <CheckCircle className="w-4 h-4" style={{color:"#16a34a"}}/>
                   <div>
                     <p className="text-lg font-bold" style={{color:"#16a34a"}}>{sla.resolvedWithinSLA}</p>
-                    <p className="text-[10px]" style={{color:"var(--text-muted)"}}>اتحلت في الوقت</p>
+                    <p className="text-[10px]" style={{color:"var(--text-muted)"}}>Resolved on time</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 p-2 rounded-[8px]" style={{background:"rgba(220,38,38,0.06)",border:"1px solid rgba(220,38,38,0.15)"}}>
                   <ShieldX className="w-4 h-4" style={{color:"#dc2626"}}/>
                   <div>
                     <p className="text-lg font-bold" style={{color:"#dc2626"}}>{sla.resolvedBreached}</p>
-                    <p className="text-[10px]" style={{color:"var(--text-muted)"}}>اتحلت بعد الوقت</p>
+                    <p className="text-[10px]" style={{color:"var(--text-muted)"}}>Resolved after deadline</p>
                   </div>
                 </div>
               </div>
