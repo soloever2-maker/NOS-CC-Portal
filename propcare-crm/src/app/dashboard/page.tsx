@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Ticket, Users, Building2, CheckCircle, Clock, AlertCircle, Plus, ArrowRight, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { Ticket, Users, Building2, CheckCircle, Clock, AlertCircle, Plus, ArrowRight, ShieldCheck, ShieldAlert, ShieldX, Calendar } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 interface SLAStats { within: number; atRisk: number; overdue: number; complianceRate: number | null; resolvedWithinSLA: number; resolvedBreached: number; }
 interface Stats {
   totalTickets: number; openTickets: number; inProgress: number;
-  pendingClient: number; resolvedThisMonth: number; closedThisMonth: number;
+  pendingClient: number; resolvedCount: number; closedCount: number;
   totalClients: number;
   byStatus: Record<string, number>; byCategory: Record<string, number>;
   sla: SLAStats;
@@ -35,55 +35,93 @@ const CAT_LABELS: Record<string, string> = {
   PAYMENT: "Payment", LEASE: "Lease", HANDOVER: "Handover", OTHER: "Other",
 };
 
+// ── Date range presets ────────────────────────────────────────────────────
+type RangeKey = "today" | "week" | "month" | "quarter" | "all";
+
+const RANGES: { key: RangeKey; label: string }[] = [
+  { key: "today",   label: "Today"       },
+  { key: "week",    label: "This Week"   },
+  { key: "month",   label: "This Month"  },
+  { key: "quarter", label: "Last 3M"     },
+  { key: "all",     label: "All Time"    },
+];
+
+function getDateRange(key: RangeKey): { from: string | null; to: string | null; label: string } {
+  const now  = new Date();
+  const to   = now.toISOString();
+
+  if (key === "all") return { from: null, to: null, label: "All Time" };
+
+  if (key === "today") {
+    const from = new Date(now); from.setHours(0, 0, 0, 0);
+    return { from: from.toISOString(), to, label: now.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) };
+  }
+  if (key === "week") {
+    const from = new Date(now); from.setDate(now.getDate() - 7);
+    return { from: from.toISOString(), to, label: "Last 7 Days" };
+  }
+  if (key === "month") {
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: from.toISOString(), to, label: now.toLocaleDateString("en-GB", { month: "long", year: "numeric" }) };
+  }
+  if (key === "quarter") {
+    const from = new Date(now); from.setMonth(now.getMonth() - 3);
+    return { from: from.toISOString(), to, label: "Last 3 Months" };
+  }
+  return { from: null, to: null, label: "All Time" };
+}
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recent, setRecent] = useState<RecentTicket[]>([]);
+  const [stats,   setStats]   = useState<Stats | null>(null);
+  const [recent,  setRecent]  = useState<RecentTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [range,   setRange]   = useState<RangeKey>("month");
 
+  // Fetch user role once
   useEffect(() => {
     const supabase = createClient();
-
-    // Fetch user role directly via Supabase client
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
-      const { data: profile } = await supabase
-        .from("users")
-        .select("role")
-        .eq("supabase_id", user.id)
-        .single();
-      if (profile) {
-        setIsAdmin(["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(profile.role));
-      }
+      const { data: profile } = await supabase.from("users").select("role").eq("supabase_id", user.id).single();
+      if (profile) setIsAdmin(["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(profile.role));
     });
-
-    Promise.all([
-      fetch("/api/stats").then(r => r.json()),
-      fetch("/api/tickets").then(r => r.json()),
-    ]).then(([statsRes, ticketsRes]) => {
-      if (statsRes.success) setStats(statsRes.data);
-      if (ticketsRes.success) setRecent((ticketsRes.data ?? []).slice(0, 6));
-      setLoading(false);
-    }).catch(() => setLoading(false));
   }, []);
 
-  const sla = stats?.sla;
-  const slaTotal = (sla?.within ?? 0) + (sla?.atRisk ?? 0) + (sla?.overdue ?? 0);
+  // Fetch stats whenever range changes
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    const { from, to } = getDateRange(range);
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to)   params.set("to",   to);
 
-  const now = new Date();
-  const monthName = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    const [statsRes, ticketsRes] = await Promise.all([
+      fetch(`/api/stats?${params}`).then(r => r.json()),
+      fetch("/api/tickets").then(r => r.json()),
+    ]);
+    if (statsRes.success)   setStats(statsRes.data);
+    if (ticketsRes.success) setRecent((ticketsRes.data ?? []).slice(0, 6));
+    setLoading(false);
+  }, [range]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  const sla      = stats?.sla;
+  const slaTotal = (sla?.within ?? 0) + (sla?.atRisk ?? 0) + (sla?.overdue ?? 0);
+  const { label: periodLabel } = getDateRange(range);
 
   const statCards = [
-    { label: "Open",               value: stats?.openTickets ?? 0,       icon: AlertCircle, color: "var(--danger)",  sub: "needs action" },
-    { label: "In Progress",        value: stats?.inProgress ?? 0,         icon: Clock,       color: "var(--warning)", sub: "being handled" },
-    { label: "Pending Client",     value: stats?.pendingClient ?? 0,      icon: Clock,       color: "var(--info)",    sub: "awaiting client" },
-    { label: `Resolved (${monthName})`, value: stats?.resolvedThisMonth ?? 0, icon: CheckCircle, color: "var(--success)", sub: "this month" },
-    { label: `Closed (${monthName})`,   value: stats?.closedThisMonth ?? 0,   icon: CheckCircle, color: "var(--text-muted)", sub: "this month" },
-    { label: "Total Tickets",      value: stats?.totalTickets ?? 0,       icon: Ticket,      color: "var(--gold-500)", sub: "all time" },
+    { label: "Open",           value: stats?.openTickets   ?? 0, icon: AlertCircle, color: "var(--danger)"      },
+    { label: "In Progress",    value: stats?.inProgress    ?? 0, icon: Clock,       color: "var(--warning)"     },
+    { label: "Pending Client", value: stats?.pendingClient ?? 0, icon: Clock,       color: "var(--info)"        },
+    { label: "Resolved",       value: stats?.resolvedCount ?? 0, icon: CheckCircle, color: "var(--success)"     },
+    { label: "Closed",         value: stats?.closedCount   ?? 0, icon: CheckCircle, color: "var(--text-muted)"  },
+    { label: "Clients",        value: stats?.totalClients  ?? 0, icon: Users,       color: "var(--gold-500)"    },
   ];
 
   const categoryData = Object.entries(stats?.byCategory ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const totalCat = categoryData.reduce((s, [, v]) => s + v, 0);
+  const totalCat     = categoryData.reduce((s, [, v]) => s + v, 0);
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
@@ -95,7 +133,35 @@ export default function DashboardPage() {
 
       <div className="flex-1 p-5 space-y-5">
 
-        {/* Stat Cards */}
+        {/* ── Date Range Filter ── */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Calendar className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+          {RANGES.map(r => (
+            <button
+              key={r.key}
+              onClick={() => setRange(r.key)}
+              style={{
+                padding: "5px 14px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 600,
+                border: "1px solid",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                borderColor: range === r.key ? "var(--gold-500)" : "var(--border)",
+                background:  range === r.key ? "var(--gold-glow)" : "transparent",
+                color:       range === r.key ? "var(--gold-500)"  : "var(--text-muted)",
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+          <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 4 }}>
+            — showing: <strong style={{ color: "var(--text-secondary)" }}>{periodLabel}</strong>
+          </span>
+        </div>
+
+        {/* ── Stat Cards ── */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {statCards.map(s => (
             <div key={s.label} className="stat-card">
@@ -106,12 +172,12 @@ export default function DashboardPage() {
                 {loading ? "—" : s.value}
               </p>
               <p className="text-xs font-semibold mt-0.5" style={{ color: "var(--text-primary)" }}>{s.label}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{s.sub}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{periodLabel}</p>
             </div>
           ))}
         </div>
 
-        {/* ── SLA Overview — prominent section ── */}
+        {/* ── SLA Overview ── */}
         <div className="rounded-[14px] p-5" style={{ background: "var(--black-800)", border: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -119,8 +185,11 @@ export default function DashboardPage() {
               <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>SLA Overview</h2>
               {sla?.complianceRate !== null && sla?.complianceRate !== undefined && (
                 <span className="text-xs font-bold px-2.5 py-1 rounded-full ml-1"
-                  style={{ background: sla.complianceRate >= 80 ? "rgba(34,197,94,0.12)" : sla.complianceRate >= 60 ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)", color: sla.complianceRate >= 80 ? "var(--success)" : sla.complianceRate >= 60 ? "var(--warning)" : "var(--danger)" }}>
-                  {sla.complianceRate}% compliance — {monthName}
+                  style={{
+                    background: sla.complianceRate >= 80 ? "rgba(34,197,94,0.12)" : sla.complianceRate >= 60 ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)",
+                    color: sla.complianceRate >= 80 ? "var(--success)" : sla.complianceRate >= 60 ? "var(--warning)" : "var(--danger)"
+                  }}>
+                  {sla.complianceRate}% compliance — {periodLabel}
                 </span>
               )}
             </div>
@@ -132,16 +201,14 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            {/* Within SLA */}
             <div className="flex items-center gap-3 p-3 rounded-[10px]" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.18)" }}>
               <ShieldCheck className="w-8 h-8 shrink-0" style={{ color: "var(--success)" }} />
               <div>
                 <p className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: "var(--success)" }}>{loading ? "—" : sla?.within ?? 0}</p>
                 <p className="text-xs font-semibold" style={{ color: "var(--success)" }}>Within SLA</p>
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>tickets on track</p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>active tickets on track</p>
               </div>
             </div>
-            {/* At Risk */}
             <div className="flex items-center gap-3 p-3 rounded-[10px]" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)" }}>
               <ShieldAlert className="w-8 h-8 shrink-0" style={{ color: "var(--warning)" }} />
               <div>
@@ -150,31 +217,25 @@ export default function DashboardPage() {
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>75%+ of SLA used</p>
               </div>
             </div>
-            {/* Overdue */}
             <div className="flex items-center gap-3 p-3 rounded-[10px]" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)" }}>
               <ShieldX className="w-8 h-8 shrink-0" style={{ color: "var(--danger)" }} />
               <div>
                 <p className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: "var(--danger)" }}>{loading ? "—" : sla?.overdue ?? 0}</p>
                 <p className="text-xs font-semibold" style={{ color: "var(--danger)" }}>SLA Breached</p>
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>exceeded time limit</p>
+                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>active — exceeded limit</p>
               </div>
             </div>
           </div>
 
-          {/* SLA progress bar */}
           {slaTotal > 0 && (
             <div>
               <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
-                <div className="transition-all" style={{ width: `${Math.round((sla!.within / slaTotal) * 100)}%`, background: "var(--success)", opacity: 0.85 }} />
-                <div className="transition-all" style={{ width: `${Math.round((sla!.atRisk / slaTotal) * 100)}%`, background: "var(--warning)", opacity: 0.85 }} />
-                <div className="transition-all" style={{ width: `${Math.round((sla!.overdue / slaTotal) * 100)}%`, background: "var(--danger)", opacity: 0.85 }} />
+                <div style={{ width: `${Math.round((sla!.within  / slaTotal) * 100)}%`, background: "var(--success)", opacity: 0.85 }} />
+                <div style={{ width: `${Math.round((sla!.atRisk  / slaTotal) * 100)}%`, background: "var(--warning)", opacity: 0.85 }} />
+                <div style={{ width: `${Math.round((sla!.overdue / slaTotal) * 100)}%`, background: "var(--danger)",  opacity: 0.85 }} />
               </div>
               <div className="flex items-center gap-4 mt-2">
-                {[
-                  { label: "Within", color: "var(--success)" },
-                  { label: "At risk", color: "var(--warning)" },
-                  { label: "Overdue", color: "var(--danger)" },
-                ].map(l => (
+                {[{ label: "Within", color: "var(--success)" }, { label: "At risk", color: "var(--warning)" }, { label: "Overdue", color: "var(--danger)" }].map(l => (
                   <div key={l.label} className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full" style={{ background: l.color }} />
                     <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{l.label}</span>
@@ -182,7 +243,7 @@ export default function DashboardPage() {
                 ))}
                 {sla && sla.resolvedWithinSLA + sla.resolvedBreached > 0 && (
                   <span className="text-[11px] ml-auto" style={{ color: "var(--text-muted)" }}>
-                    {monthName}: {sla.resolvedWithinSLA} resolved within SLA, {sla.resolvedBreached} breached
+                    {periodLabel}: {sla.resolvedWithinSLA} resolved within SLA, {sla.resolvedBreached} breached
                   </span>
                 )}
               </div>
@@ -191,16 +252,14 @@ export default function DashboardPage() {
           {slaTotal === 0 && !loading && (
             <p className="text-xs text-center py-2" style={{ color: "var(--text-muted)" }}>
               No active tickets with SLA rules
-              {isAdmin && (
-                <> — <Link href="/dashboard/sla" style={{ color: "var(--gold-500)" }}>set up SLA rules</Link></>
-              )}
+              {isAdmin && <> — <Link href="/dashboard/sla" style={{ color: "var(--gold-500)" }}>set up SLA rules</Link></>}
             </p>
           )}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-          {/* Recent Tickets */}
+          {/* ── Recent Tickets ── */}
           <div className="xl:col-span-2">
             <Card>
               <CardHeader className="pb-3">
@@ -246,7 +305,7 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Right: Category + Quick Actions */}
+          {/* ── Right: Category + Quick Actions ── */}
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
@@ -280,8 +339,8 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="space-y-2 pt-0">
                 {[
-                  { href: "/dashboard/tickets/new", label: "New Ticket", icon: Ticket },
-                  { href: "/dashboard/clients/new", label: "Add Client", icon: Users },
+                  { href: "/dashboard/tickets/new", label: "New Ticket",   icon: Ticket    },
+                  { href: "/dashboard/clients/new", label: "Add Client",   icon: Users     },
                   { href: "/dashboard/properties/new", label: "Add Property", icon: Building2 },
                   ...(isAdmin ? [{ href: "/dashboard/sla", label: "SLA Settings", icon: ShieldCheck }] : []),
                 ].map(a => (
