@@ -24,21 +24,28 @@ export async function GET(req: NextRequest) {
       return q;
     };
 
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
     const [
       { count: totalTickets },
       { count: openTickets },
       { count: inProgress },
-      { count: resolvedToday },
+      { count: pendingClient },
+      { count: resolvedThisMonth },
+      { count: closedThisMonth },
       { count: totalClients },
-      { count: totalUnits },
     ] = await Promise.all([
       base(),
       base().eq("status", "OPEN"),
       base().eq("status", "IN_PROGRESS"),
+      base().eq("status", "PENDING_CLIENT"),
       supabase.from("tickets").select("*", { count: "exact", head: true })
-        .eq("status", "RESOLVED").gte("updated_at", today.toISOString()),
+        .eq("status", "RESOLVED").gte("resolved_at", monthStart.toISOString()),
+      supabase.from("tickets").select("*", { count: "exact", head: true })
+        .eq("status", "CLOSED").gte("updated_at", monthStart.toISOString()),
       supabase.from("clients").select("*", { count: "exact", head: true }),
-      supabase.from("client_units").select("*", { count: "exact", head: true }),
     ]);
 
     // ── By Status ───────────────────────────────────────
@@ -141,7 +148,7 @@ export async function GET(req: NextRequest) {
       else slaWithin++;
     }
 
-    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    // monthStart already declared above
     let resolvedSlaQuery = supabase.from("tickets")
       .select("category, source, created_at, resolved_at, sla_hours")
       .in("status", ["RESOLVED", "CLOSED"])
@@ -152,7 +159,12 @@ export async function GET(req: NextRequest) {
 
     let resolvedWithinSLA = 0, resolvedBreached = 0;
     for (const t of resolvedData ?? []) {
-      const hours = t.sla_hours ?? getSlaHours(t.category, t.source);
+      // Priority: stored sla_hours on ticket → source-specific rule → default rule
+      const hours =
+        t.sla_hours ??
+        (t.source && slaMap[`${t.category}:${t.source}`]
+          ? slaMap[`${t.category}:${t.source}`]
+          : slaMap[`${t.category}:default`] ?? null);
       if (!hours || !t.resolved_at) continue;
       const elapsed = (new Date(t.resolved_at).getTime() - new Date(t.created_at).getTime()) / 3600000;
       if (elapsed <= hours) resolvedWithinSLA++;
@@ -167,9 +179,10 @@ export async function GET(req: NextRequest) {
         totalTickets: totalTickets ?? 0,
         openTickets: openTickets ?? 0,
         inProgress: inProgress ?? 0,
-        resolvedToday: resolvedToday ?? 0,
+        pendingClient: pendingClient ?? 0,
+        resolvedThisMonth: resolvedThisMonth ?? 0,
+        closedThisMonth: closedThisMonth ?? 0,
         totalClients: totalClients ?? 0,
-        totalUnits: totalUnits ?? 0,
         avgResolutionHours,
         byStatus: statusCounts,
         byCategory: categoryCounts,
