@@ -37,14 +37,20 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<RecentTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/stats").then(r => r.json()),
       fetch("/api/tickets").then(r => r.json()),
-    ]).then(([statsRes, ticketsRes]) => {
+      fetch("/api/users/me").then(r => r.json()),
+    ]).then(([statsRes, ticketsRes, userRes]) => {
       if (statsRes.success) setStats(statsRes.data);
       if (ticketsRes.success) setRecent((ticketsRes.data ?? []).slice(0, 6));
+      if (userRes.success) {
+        const role = userRes.data?.role ?? "";
+        setIsAdmin(["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(role));
+      }
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -101,9 +107,11 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-            <Link href="/dashboard/sla" className="text-xs" style={{ color: "var(--gold-500)" }}>
-              Manage SLA →
-            </Link>
+            {isAdmin && (
+              <Link href="/dashboard/sla" className="text-xs" style={{ color: "var(--gold-500)" }}>
+                Manage SLA →
+              </Link>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
@@ -165,7 +173,10 @@ export default function DashboardPage() {
           )}
           {slaTotal === 0 && !loading && (
             <p className="text-xs text-center py-2" style={{ color: "var(--text-muted)" }}>
-              No active tickets with SLA rules — <Link href="/dashboard/sla" style={{ color: "var(--gold-500)" }}>set up SLA rules</Link>
+              No active tickets with SLA rules
+              {isAdmin && (
+                <> — <Link href="/dashboard/sla" style={{ color: "var(--gold-500)" }}>set up SLA rules</Link></>
+              )}
             </p>
           )}
         </div>
@@ -255,7 +266,7 @@ export default function DashboardPage() {
                   { href: "/dashboard/tickets/new", label: "New Ticket", icon: Ticket },
                   { href: "/dashboard/clients/new", label: "Add Client", icon: Users },
                   { href: "/dashboard/properties/new", label: "Add Property", icon: Building2 },
-                  { href: "/dashboard/sla", label: "SLA Settings", icon: ShieldCheck },
+                  ...(isAdmin ? [{ href: "/dashboard/sla", label: "SLA Settings", icon: ShieldCheck }] : []),
                 ].map(a => (
                   <Link key={a.href} href={a.href} className="flex items-center gap-2.5 p-2.5 rounded-[8px] text-sm font-medium transition-all hover:bg-[var(--gold-glow)]" style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
                     <a.icon className="w-4 h-4 shrink-0" style={{ color: "var(--gold-500)" }} />
