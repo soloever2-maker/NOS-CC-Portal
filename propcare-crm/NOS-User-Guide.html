@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nations of Sky — دليل المستخدم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=DM+Mono:wght@400;500&family=Playfair+Display:wght@600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #f0d98a;
+    --gold-bg: rgba(201,168,76,0.08);
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface2: #f2f0ec;
+    --border: #e4e0d8;
+    --text: #1a1814;
+    --text2: #5a5650;
+    --text3: #9a9590;
+    --success: #16a34a;
+    --success-bg: rgba(22,163,74,0.08);
+    --danger: #dc2626;
+    --danger-bg: rgba(220,38,38,0.08);
+    --warning: #d97706;
+    --warning-bg: rgba(217,119,6,0.08);
+    --info: #2563eb;
+    --info-bg: rgba(37,99,235,0.08);
+    --admin-color: #7c3aed;
+    --admin-bg: rgba(124,58,237,0.08);
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+    --shadow-lg: 0 4px 24px rgba(0,0,0,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Tajawal', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.75;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: fixed;
+    top: 0; right: 0;
+    width: 270px;
+    height: 100vh;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    box-shadow: -2px 0 12px rgba(0,0,0,0.06);
+  }
+
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #1a1814 0%, #2d2820 100%);
+    color: white;
+  }
+  .sidebar-header .logo-name {
+    font-family: 'Playfair Display', serif;
+    color: var(--gold);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .sidebar-header .logo-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    margin-top: 2px;
+  }
+
+  .sidebar-section-title {
+    padding: 16px 16px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 16px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text2);
+    cursor: pointer;
+    border-radius: 8px;
+    margin: 1px 8px;
+    text-decoration: none;
+    transition: all 0.15s;
+    border: none;
+    background: transparent;
+    width: calc(100% - 16px);
+    text-align: right;
+  }
+  .sidebar-link:hover { background: var(--gold-bg); color: var(--gold); }
+  .sidebar-link.active { background: var(--gold-bg); color: var(--gold); font-weight: 700; }
+  .sidebar-link .icon { font-size: 15px; flex-shrink: 0; }
+  .sidebar-link .badge-admin {
+    margin-right: auto;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--admin-bg);
+    color: var(--admin-color);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Main Content ── */
+  .main {
+    margin-right: 270px;
+    min-height: 100vh;
+  }
+
+  /* ── Top Header ── */
+  .top-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 28px 48px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  .top-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .top-header p {
+    color: var(--text2);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  /* ── Page Section ── */
+  .page-section {
+    display: none;
+    padding: 40px 48px;
+    max-width: 900px;
+    animation: fadeIn 0.25s ease;
+  }
+  .page-section.active { display: block; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ── Page Header ── */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .page-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .page-header .path {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text3);
+    background: var(--surface2);
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 6px;
+  }
+  .page-header .desc { color: var(--text2); font-size: 14px; line-height: 1.6; }
+
+  .admin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--admin-bg);
+    color: var(--admin-color);
+    margin-top: 8px;
+    letter-spacing: 0.04em;
+  }
+  .agent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--info-bg);
+    color: var(--info);
+    margin-top: 8px;
+  }
+  .all-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--gold-bg);
+    color: var(--gold);
+    margin-top: 8px;
+  }
+
+  /* ── Section Card ── */
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .section-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-card h3::before {
+    content: '';
+    display: inline-block;
+    width: 3px; height: 16px;
+    background: var(--gold);
+    border-radius: 2px;
+  }
+  .section-card p { color: var(--text2); font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
+  .section-card p:last-child { margin-bottom: 0; }
+
+  /* ── Feature List ── */
+  .feature-list { list-style: none; }
+  .feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .feature-list li:last-child { border-bottom: none; }
+  .feature-list li .bullet {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--gold-bg);
+    color: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .feature-list li strong { color: var(--text); font-weight: 600; }
+
+  /* ── Field Table ── */
+  .field-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .field-table th {
+    text-align: right;
+    padding: 8px 12px;
+    background: var(--surface2);
+    color: var(--text3);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    vertical-align: top;
+  }
+  .field-table td:first-child { color: var(--text); font-weight: 600; font-family: 'DM Mono', monospace; font-size: 12.5px; }
+  .field-table tr:last-child td { border-bottom: none; }
+
+  /* ── Status Badges ── */
+  .status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .status.open    { background: var(--info-bg);    color: var(--info); }
+  .status.prog    { background: var(--warning-bg); color: var(--warning); }
+  .status.done    { background: var(--success-bg); color: var(--success); }
+  .status.danger  { background: var(--danger-bg);  color: var(--danger); }
+  .status.muted   { background: var(--surface2);   color: var(--text3); }
+  .status.gold    { background: var(--gold-bg);    color: var(--gold); }
+
+  /* ── Flow Steps ── */
+  .flow { display: flex; flex-direction: column; gap: 0; }
+  .flow-step {
+    display: flex;
+    gap: 16px;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 15px;
+    top: 34px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .flow-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .flow-body { padding: 4px 0 24px; flex: 1; }
+  .flow-body strong { display: block; color: var(--text); font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .flow-body span { font-size: 13.5px; color: var(--text2); }
+
+  /* ── Info Box ── */
+  .info-box {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-top: 14px;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .info-box.tip  { background: var(--gold-bg);    border: 1px solid rgba(201,168,76,0.2); color: #7a5e1a; }
+  .info-box.warn { background: var(--warning-bg); border: 1px solid rgba(217,119,6,0.2);  color: var(--warning); }
+  .info-box.info { background: var(--info-bg);    border: 1px solid rgba(37,99,235,0.15); color: var(--info); }
+  .info-box .icon-box { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Data Source Tag ── */
+  .data-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 5px;
+    margin: 2px;
+  }
+  .data-source.db { color: var(--info); background: var(--info-bg); border-color: rgba(37,99,235,0.15); }
+  .data-source.api { color: var(--success); background: var(--success-bg); border-color: rgba(22,163,74,0.15); }
+
+  /* ── Two-column Grid ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Mini Card ── */
+  .mini-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .mini-card .label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .mini-card .value { font-size: 14px; color: var(--text2); line-height: 1.6; }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  /* ── Welcome screen ── */
+  .welcome {
+    padding: 60px 48px;
+    max-width: 820px;
+  }
+  .welcome .nos-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .welcome .nos-sub {
+    font-size: 15px;
+    color: var(--text2);
+    margin-bottom: 40px;
+  }
+  .welcome-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 32px;
+  }
+  .welcome-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.18s;
+    box-shadow: var(--shadow);
+  }
+  .welcome-card:hover { border-color: var(--gold); box-shadow: 0 4px 20px rgba(201,168,76,0.12); transform: translateY(-2px); }
+  .welcome-card .wc-icon { font-size: 24px; margin-bottom: 10px; }
+  .welcome-card .wc-title { font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 4px; }
+  .welcome-card .wc-desc { font-size: 12.5px; color: var(--text3); line-height: 1.5; }
+  .welcome-card .wc-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-block; margin-top: 8px; }
+  .welcome-card .wc-badge.admin { background: var(--admin-bg); color: var(--admin-color); }
+  .welcome-card .wc-badge.agent { background: var(--info-bg); color: var(--info); }
+  .welcome-card .wc-badge.all { background: var(--gold-bg); color: var(--gold); }
+
+  hr.section-sep { border: none; border-top: 2px solid var(--gold-bg); margin: 32px 0; }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { margin-right: 0; }
+    .page-section, .welcome { padding: 24px 20px; }
+    .top-header { padding: 20px; }
+    .welcome-grid { grid-template-columns: 1fr 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════ SIDEBAR ════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo-name">Nations of Sky</div>
+    <div class="logo-sub">Customer Care CRM — دليل المستخدم</div>
+  </div>
+
+  <div class="sidebar-section-title">البداية</div>
+  <button class="sidebar-link active" onclick="show('welcome')" id="nav-welcome">🏠 <span>نظرة عامة على النظام</span></button>
+
+  <div class="sidebar-section-title">الصفحات الرئيسية</div>
+  <button class="sidebar-link" onclick="show('dashboard')" id="nav-dashboard">📊 <span>Dashboard</span></button>
+  <button class="sidebar-link" onclick="show('tickets')" id="nav-tickets">🎫 <span>Tickets</span></button>
+  <button class="sidebar-link" onclick="show('new-ticket')" id="nav-new-ticket">➕ <span>New Ticket</span></button>
+  <button class="sidebar-link" onclick="show('ticket-detail')" id="nav-ticket-detail">🔍 <span>Ticket Detail</span></button>
+  <button class="sidebar-link" onclick="show('clients')" id="nav-clients">👥 <span>Clients</span></button>
+  <button class="sidebar-link" onclick="show('client-detail')" id="nav-client-detail">👤 <span>Client Profile</span></button>
+
+  <div class="sidebar-section-title">التقارير والأداء</div>
+  <button class="sidebar-link" onclick="show('reports')" id="nav-reports">📈 <span>Reports <span class="badge-admin">ADMIN</span></span></button>
+  <button class="sidebar-link" onclick="show('interactions')" id="nav-interactions">📞 <span>Interactions</span></button>
+  <button class="sidebar-link" onclick="show('csat')" id="nav-csat">⭐ <span>CSAT Scores</span></button>
+  <button class="sidebar-link" onclick="show('kpi-admin')" id="nav-kpi-admin">🎯 <span>KPI Dashboard <span class="badge-admin">ADMIN</span></span></button>
+  <button class="sidebar-link" onclick="show('my-kpi')" id="nav-my-kpi">📋 <span>My KPIs</span></button>
+
+  <div class="sidebar-section-title">الإعدادات</div>
+  <button class="sidebar-link" onclick="show('sla')" id="nav-sla">🛡️ <span>SLA Settings <span class="badge-admin">ADMIN</span></span></button>
+  <button class="sidebar-link" onclick="show('notifications')" id="nav-notifications">🔔 <span>Notifications</span></button>
+  <button class="sidebar-link" onclick="show('settings')" id="nav-settings">⚙️ <span>Settings</span></button>
+  <button class="sidebar-link" onclick="show('ai')" id="nav-ai">✨ <span>AI Assistant</span></button>
+</nav>
+
+<!-- ════════════════════════════════ MAIN ════════════════════════════════ -->
+<div class="main">
+
+  <div class="top-header">
+    <h1>دليل المستخدم — NOS CRM</h1>
+    <p>Nations of Sky · Customer Care Portal · شرح شامل لكل صفحة وكيفية عملها</p>
+  </div>
+
+  <!-- ════ WELCOME ════ -->
+  <div id="page-welcome" class="welcome page-section active">
+    <div class="nos-logo">Nations of Sky CRM</div>
+    <div class="nos-sub">نظام إدارة علاقات العملاء — Customer Care Portal</div>
+
+    <div class="section-card">
+      <h3>ما هو هذا النظام؟</h3>
+      <p>النظام ده هو منصة متكاملة لإدارة تذاكر الدعم (Tickets) والعملاء (Clients) والأداء الوظيفي (KPIs) الخاص بفريق خدمة العملاء في شركة Nations of Sky العقارية.</p>
+      <p>البيانات كلها بتتخزن في <strong>Supabase</strong> (قاعدة بيانات PostgreSQL على السحابة)، والـ Frontend مبنية بـ <strong>Next.js 14</strong>.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>أنواع المستخدمين</h3>
+      <div class="two-col">
+        <div class="mini-card">
+          <div class="label">👑 Admin / Manager / Super Admin</div>
+          <div class="value">يشوف كل حاجة: التقارير، KPI الكل، SLA Settings، إدارة الأجنتس، Export البيانات.</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">🧑‍💼 Agent</div>
+          <div class="value">يشوف التذاكر اللي عليه، عملاؤه، KPI الخاص بيه بس، مش عنده SLA Settings ولا Reports.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>كيف البيانات بتتجيب؟</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">①</span><div><strong>Supabase Client (مباشر):</strong> معظم الصفحات بتكلم Supabase مباشرةً من المتصفح باستخدام <code>createClient()</code> — أسرع وأوفر.</div></li>
+        <li><span class="bullet">②</span><div><strong>API Routes (/api/...):</strong> بعض البيانات بتمر على Next.js API Routes (زي Stats، CSAT، Export) عشان تعمل حسابات معقدة على السيرفر.</div></li>
+        <li><span class="bullet">③</span><div><strong>Real-time:</strong> الـ Notifications بتيجي Realtime من Supabase بدون ما تعمل Refresh.</div></li>
+      </ul>
+    </div>
+
+    <div class="welcome-grid">
+      <div class="welcome-card" onclick="show('dashboard')"><div class="wc-icon">📊</div><div class="wc-title">Dashboard</div><div class="wc-desc">الصفحة الرئيسية والإحصائيات</div><div class="wc-badge all">الكل</div></div>
+      <div class="welcome-card" onclick="show('tickets')"><div class="wc-icon">🎫</div><div class="wc-title">Tickets</div><div class="wc-desc">إدارة تذاكر الدعم</div><div class="wc-badge all">الكل</div></div>
+      <div class="welcome-card" onclick="show('clients')"><div class="wc-icon">👥</div><div class="wc-title">Clients</div><div class="wc-desc">قاعدة بيانات العملاء</div><div class="wc-badge all">الكل</div></div>
+      <div class="welcome-card" onclick="show('reports')"><div class="wc-icon">📈</div><div class="wc-title">Reports</div><div class="wc-desc">تقارير وإحصائيات متقدمة</div><div class="wc-badge admin">Admin</div></div>
+      <div class="welcome-card" onclick="show('kpi-admin')"><div class="wc-icon">🎯</div><div class="wc-title">KPI Dashboard</div><div class="wc-desc">أداء الأجنتس</div><div class="wc-badge admin">Admin</div></div>
+      <div class="welcome-card" onclick="show('sla')"><div class="wc-icon">🛡️</div><div class="wc-title">SLA Settings</div><div class="wc-desc">قواعد وقت الاستجابة</div><div class="wc-badge admin">Admin</div></div>
+      <div class="welcome-card" onclick="show('my-kpi')"><div class="wc-icon">📋</div><div class="wc-title">My KPIs</div><div class="wc-desc">أداء الأجنت الشخصي</div><div class="wc-badge agent">Agent</div></div>
+      <div class="welcome-card" onclick="show('interactions')"><div class="wc-icon">📞</div><div class="wc-title">Interactions</div><div class="wc-desc">سجل المكالمات والتواصل</div><div class="wc-badge all">الكل</div></div>
+      <div class="welcome-card" onclick="show('csat')"><div class="wc-icon">⭐</div><div class="wc-title">CSAT Scores</div><div class="wc-desc">تقييمات رضا العملاء</div><div class="wc-badge all">الكل</div></div>
+    </div>
+  </div>
+
+  <!-- ════ DASHBOARD ════ -->
+  <div id="page-dashboard" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">📊</div>
+      <div>
+        <div class="path">/dashboard</div>
+        <h2>Dashboard — الصفحة الرئيسية</h2>
+        <div class="desc">أول صفحة بتشوفها بعد الـ Login. بتديك نظرة سريعة على حالة كل حاجة.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>الـ Stat Cards (بطاقات الإحصائيات)</h3>
+      <p>فوق الصفحة في 5 بطاقات بتتجاب من <span class="data-source api">GET /api/stats</span>:</p>
+      <ul class="feature-list">
+        <li><span class="bullet">①</span><div><strong>Total Tickets:</strong> إجمالي التذاكر في النظام</div></li>
+        <li><span class="bullet">②</span><div><strong>Open:</strong> التذاكر المفتوحة الجديدة اللي محدش بشتغل عليها</div></li>
+        <li><span class="bullet">③</span><div><strong>In Progress:</strong> التذاكر اللي شغال عليها دلوقتي</div></li>
+        <li><span class="bullet">④</span><div><strong>Resolved Today:</strong> اللي اتحلت النهارده</div></li>
+        <li><span class="bullet">⑤</span><div><strong>Clients:</strong> إجمالي العملاء المسجلين</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>SLA Overview</h3>
+      <p>بيتجيب من <span class="data-source api">GET /api/stats</span> ويوضح حالة الـ SLA للتذاكر الحالية:</p>
+      <div class="two-col">
+        <div class="mini-card"><div class="label" style="color:var(--success)">✅ Within SLA</div><div class="value">التذاكر اللي لسه في الوقت المحدد</div></div>
+        <div class="mini-card"><div class="label" style="color:var(--warning)">⚠️ At Risk</div><div class="value">التذاكر اللي استهلكت 75%+ من وقت الـ SLA</div></div>
+        <div class="mini-card"><div class="label" style="color:var(--danger)">❌ SLA Breached</div><div class="value">التذاكر اللي تخطت الوقت المحدد</div></div>
+        <div class="mini-card"><div class="label">📊 Compliance Rate</div><div class="value">نسبة التذاكر اللي اتحلت في الوقت خلال الشهر الحالي</div></div>
+      </div>
+      <div class="info-box warn">
+        <span class="icon-box">⚠️</span>
+        <span>لينك "Manage SLA →" بيظهر للـ Admin بس — الأجنت مش هيشوفه.</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>Recent Tickets</h3>
+      <p>بيتجاب من <span class="data-source api">GET /api/tickets</span> وبيعرض آخر 6 تذاكر مع حالتها والعميل واللي عليه.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>By Category</h3>
+      <p>Chart بيوضح توزيع التذاكر على الأنواع: Maintenance, Complaint, Inquiry, Payment, Lease, Handover, Other.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>Quick Actions</h3>
+      <p>أزرار سريعة: New Ticket, Add Client, Add Property. زرار SLA Settings بيظهر للـ Admin بس.</p>
+    </div>
+  </div>
+
+  <!-- ════ TICKETS ════ -->
+  <div id="page-tickets" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">🎫</div>
+      <div>
+        <div class="path">/dashboard/tickets</div>
+        <h2>Tickets — قائمة التذاكر</h2>
+        <div class="desc">قلب النظام. بتشوف هنا كل التذاكر، تفلترها، وتتعامل معاها.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>من <span class="data-source db">Supabase: tickets</span> مباشرةً مع Join على <span class="data-source db">clients</span> و <span class="data-source db">users</span> و <span class="data-source db">properties</span>.</p>
+      <p>الأجنت بيشوف التذاكر اللي <strong>assigned_to_id</strong> بتاعته بس — الأدمن بيشوف الكل.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>فلاتر البحث</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">🔍</span><div><strong>Search:</strong> بيدور في عنوان التكت والـ Code (مثال: TKT-001) واسم العميل</div></li>
+        <li><span class="bullet">📌</span><div><strong>Status Tabs:</strong> ALL / OPEN / IN_PROGRESS / PENDING_CLIENT / RESOLVED / CLOSED</div></li>
+        <li><span class="bullet">⚡</span><div><strong>Priority Filter:</strong> Low, Medium, High, Urgent</div></li>
+        <li><span class="bullet">📁</span><div><strong>Category Filter:</strong> نوع المشكلة (Maintenance, Complaint...)</div></li>
+        <li><span class="bullet">🏗️</span><div><strong>Project Filter:</strong> فلترة على مشاريع Nations of Sky</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>الـ Ticket Code</h3>
+      <p>كل تكت عنده كود أوتوماتيك بيتولد على الشكل ده:</p>
+      <div class="info-box info">
+        <span class="icon-box">💡</span>
+        <span><strong>TKT-001</strong> → رقم متسلسل بيزيد تلقائياً مع كل تكت جديد. بيتولد على السيرفر في <code>/api/tickets POST</code>.</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>العمود ⭐ Star</h3>
+      <p>كل تكت ممكن تعطيه نجمة بلون مختلف (1-5 نجوم) عشان تحدد أولويتك أنت شخصياً. البيانات دي بتتحفظ في <span class="data-source db">Supabase: tickets.csat_score</span>.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>SLA Indicator</h3>
+      <p>كل تكت عنده مؤشر SLA بيتحسب بناءً على <strong>ticket_type</strong> و <strong>source</strong> من جدول <span class="data-source db">sla_settings</span>. لو الوقت خلص هيتلون أحمر.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>Export</h3>
+      <p>زرار Download بيفتح نافذة تختار منها: تاريخ بداية ونهاية، Status، Project، Agent. البيانات بتتجاب من <span class="data-source api">GET /api/export/tickets</span> وبتتنزل ملف CSV.</p>
+    </div>
+  </div>
+
+  <!-- ════ NEW TICKET ════ -->
+  <div id="page-new-ticket" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0)">➕</div>
+      <div>
+        <div class="path">/dashboard/tickets/new</div>
+        <h2>New Ticket — إنشاء تذكرة جديدة</h2>
+        <div class="desc">الفورم اللي بتفتح تكت جديد منه. بيتبعت على <code>POST /api/tickets</code>.</div>
+        <span class="all-badge">👁️ الكل يقدر يفتح</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>الحقول المطلوبة</h3>
+      <table class="field-table">
+        <thead><tr><th>الحقل</th><th>الوصف</th><th>إلزامي؟</th></tr></thead>
+        <tbody>
+          <tr><td>Title</td><td>عنوان مختصر للمشكلة</td><td>✅ نعم</td></tr>
+          <tr><td>Category</td><td>نوع المشكلة: Maintenance / Complaint / Inquiry / Payment / Lease / Handover / Other</td><td>✅ نعم</td></tr>
+          <tr><td>Priority</td><td>Low / Medium / High / Urgent</td><td>✅ نعم</td></tr>
+          <tr><td>Source</td><td>مصدر التواصل: Walk-in / Call Center / Email</td><td>✅ نعم</td></tr>
+          <tr><td>Client</td><td>بحث Smart Combobox في قاعدة العملاء</td><td>❌ اختياري</td></tr>
+          <tr><td>Unit</td><td>الوحدة العقارية بتاعة العميل</td><td>❌ اختياري</td></tr>
+          <tr><td>Project</td><td>مشروع النيشن أوف سكاي</td><td>❌ اختياري</td></tr>
+          <tr><td>Assigned To</td><td>الأجنت اللي هيشتغل على التكت</td><td>❌ اختياري</td></tr>
+          <tr><td>Description</td><td>تفاصيل المشكلة</td><td>❌ اختياري</td></tr>
+          <tr><td>Tags</td><td>كلمات مفتاحية للتصنيف</td><td>❌ اختياري</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-card">
+      <h3>Client Search — البحث الذكي</h3>
+      <p>بتكتب اسم العميل أو تليفونه وبيدور في <span class="data-source db">Supabase: clients</span> فوراً. لما تختار العميل بيعرضلك وحداته تلقائياً.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>بعد الحفظ</h3>
+      <div class="flow">
+        <div class="flow-step"><div class="flow-num">1</div><div class="flow-body"><strong>إنشاء التكت</strong><span>بيتبعت POST /api/tickets فبييجي رد بالـ ID الجديد</span></div></div>
+        <div class="flow-step"><div class="flow-num">2</div><div class="flow-body"><strong>حساب SLA</strong><span>السيرفر بيبص على sla_settings ويحسب due_date بناءً على الـ Category والـ Source</span></div></div>
+        <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>Notification</strong><span>لو فيه assigned_to، هيوصله Notification تلقائي</span></div></div>
+        <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>Redirect</strong><span>بتتحول تلقائياً لصفحة تفاصيل التكت الجديد</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ TICKET DETAIL ════ -->
+  <div id="page-ticket-detail" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8)">🔍</div>
+      <div>
+        <div class="path">/dashboard/tickets/[id]</div>
+        <h2>Ticket Detail — تفاصيل التذكرة</h2>
+        <div class="desc">صفحة التكت الكاملة: كل التفاصيل، التعليقات، وتغيير الحالة.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>بيتجاب من <span class="data-source db">Supabase: tickets</span> مع Join على: <span class="data-source db">clients</span> + <span class="data-source db">users</span> + <span class="data-source db">properties</span> + <span class="data-source db">ticket_comments</span> + <span class="data-source db">sla_settings</span>.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>تغيير الـ Status</h3>
+      <p>أزرار جانبية بتغير حالة التكت مباشرةً:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <span class="status open">● Open</span>
+        <span class="status prog">● In Progress</span>
+        <span class="status muted">● Pending Client</span>
+        <span class="status done">● Resolved</span>
+        <span class="status muted">● Closed</span>
+      </div>
+      <div class="info-box tip">
+        <span class="icon-box">💡</span>
+        <span>لما التكت يبقى <strong>Resolved</strong>، بيتسجل <strong>resolved_at</strong> تلقائياً وبيتحسب وقت الحل.</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>Contact Status</h3>
+      <p>بيسجل حالة التواصل مع العميل:</p>
+      <ul class="feature-list">
+        <li><span class="bullet">—</span><div><strong>Not Contacted:</strong> لسه متواصلناش</div></li>
+        <li><span class="bullet">—</span><div><strong>No Answer:</strong> رن ومجاوبش</div></li>
+        <li><span class="bullet">—</span><div><strong>Not Reachable:</strong> مش متاح</div></li>
+        <li><span class="bullet">—</span><div><strong>Reached:</strong> اتكلمنا</div></li>
+        <li><span class="bullet">—</span><div><strong>Callback Requested:</strong> طلب رد تاني</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>Comments — التعليقات</h3>
+      <p>نوعين من التعليقات بيتحفظوا في <span class="data-source db">ticket_comments</span>:</p>
+      <div class="two-col">
+        <div class="mini-card"><div class="label">💬 Public Comment</div><div class="value">مرئي للكل — بيوصل إشعار للأجنت المسند</div></div>
+        <div class="mini-card"><div class="label" style="color:var(--admin-color)">🔒 Internal Note</div><div class="value">للفريق الداخلي بس — بلون مختلف</div></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>SLA Indicator</h3>
+      <p>مؤشر بيوضح كام وقت فضل على انتهاء الـ SLA. بيتحسب من <strong>created_at</strong> + <strong>sla_hours</strong> من جدول <span class="data-source db">sla_settings</span> بناءً على الـ Category والـ Source.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>CSAT Rating</h3>
+      <p>في أسفل التكت، تقدر تضيف تقييم من 1 لـ 5 نجوم بيتحفظ في <span class="data-source db">csat_scores</span> مرتبط بالتكت والأجنت والشهر والسنة.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>Reassignment (إعادة التعيين)</h3>
+      <p>لو غيرت الأجنت المسند (Assigned To)، النظام بيسجل <strong>last_reassignment</strong> في التكت (من مين، لمين، وامتى).</p>
+    </div>
+  </div>
+
+  <!-- ════ CLIENTS ════ -->
+  <div id="page-clients" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe)">👥</div>
+      <div>
+        <div class="path">/dashboard/clients</div>
+        <h2>Clients — قاعدة بيانات العملاء</h2>
+        <div class="desc">قائمة بكل العملاء المسجلين. تقدر تبحث، تعدل، وتضيف.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>من <span class="data-source api">GET /api/clients</span> اللي بيجيب من <span class="data-source db">Supabase: clients</span> مع دعم البحث بالاسم والتليفون.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>طرق العرض</h3>
+      <div class="two-col">
+        <div class="mini-card"><div class="label">📋 Table View</div><div class="value">جدول منظم بكل المعلومات. الافتراضي.</div></div>
+        <div class="mini-card"><div class="label">🃏 Cards View</div><div class="value">بطاقات أجمل للعرض السريع</div></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>الـ Tags</h3>
+      <p>كل عميل ممكن يكون عنده Tags بتحدد نوعه:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <span class="status gold">VIP</span>
+        <span class="status prog">Owner</span>
+        <span class="status open">Tenant</span>
+        <span class="status done">Investor</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>Inline Edit</h3>
+      <p>الأدمن يقدر يضغط Edit على أي عميل في الجدول وبيعدله البيانات في نفس الصف بدون ما يفتح صفحة جديدة. بيتبعت <span class="data-source api">PATCH /api/clients/[id]</span>.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>Bulk Import (استيراد CSV)</h3>
+      <p>زرار Import بيقدر يرفع ملف CSV فيه بيانات عملاء كتير دفعة واحدة. النظام بيعمل Parse للملف وبيضيف العملاء في <span class="data-source db">clients</span>.</p>
+    </div>
+  </div>
+
+  <!-- ════ CLIENT DETAIL ════ -->
+  <div id="page-client-detail" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">👤</div>
+      <div>
+        <div class="path">/dashboard/clients/[id]</div>
+        <h2>Client Profile — ملف العميل الكامل</h2>
+        <div class="desc">صفحة شاملة بكل معلومات العميل، تذاكره، وحداته العقارية، وتاريخ تواصله.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>أقسام الصفحة</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">①</span><div><strong>معلومات شخصية:</strong> الاسم، التليفون، الواتساب، الإيميل، الجنسية، رقم الهوية، العنوان</div></li>
+        <li><span class="bullet">②</span><div><strong>Units (الوحدات العقارية):</strong> كل الوحدات المرتبطة بيه مع نوع العلاقة (Owner / Tenant / Prospect)</div></li>
+        <li><span class="bullet">③</span><div><strong>Tickets:</strong> كل التذاكر المرتبطة بالعميل ده مع حالتها</div></li>
+        <li><span class="bullet">④</span><div><strong>Interactions Timeline:</strong> سجل كل التواصل مع العميل (مكالمات، إيميلات، واتساب، اجتماعات)</div></li>
+        <li><span class="bullet">⑤</span><div><strong>Attachments:</strong> ملفات ومستندات مرفقة بالعميل (بتتخزن في Supabase Storage)</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>إضافة Interaction</h3>
+      <p>من صفحة الملف مباشرةً تقدر تسجل تواصل جديد بالنوع والملخص والمدة. بيتحفظ في <span class="data-source db">Supabase: interactions</span>.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>Properties Search</h3>
+      <p>تقدر تدور على وحدة عقارية وتضيفها للعميل من نفس الصفحة. البحث بيدور في <span class="data-source db">properties</span>.</p>
+    </div>
+  </div>
+
+  <!-- ════ REPORTS ════ -->
+  <div id="page-reports" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#fef9c3,#fef08a)">📈</div>
+      <div>
+        <div class="path">/dashboard/reports</div>
+        <h2>Reports — التقارير والإحصائيات</h2>
+        <div class="desc">لوحة تقارير شاملة بـ Charts بيانية وأرقام أداء الفريق.</div>
+        <span class="admin-badge">👑 Admin / Manager فقط</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>كلها من <span class="data-source api">GET /api/stats</span> مع دعم فلترة بالتاريخ:</p>
+    </div>
+
+    <div class="section-card">
+      <h3>فلاتر الوقت</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="status gold">This Week (7 أيام)</span>
+        <span class="status gold">This Month (30 يوم)</span>
+        <span class="status gold">Last 3M (90 يوم)</span>
+        <span class="status gold">All Time</span>
+      </div>
+      <p style="margin-top:12px">ممكن كمان تفلتر على Project معين من قائمة مشاريع Nations of Sky.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>الـ Charts الموجودة</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">①</span><div><strong>By Category (Pie Chart):</strong> توزيع التذاكر على الأنواع</div></li>
+        <li><span class="bullet">②</span><div><strong>By Status (Pie Chart):</strong> Open / In Progress / Resolved / Closed</div></li>
+        <li><span class="bullet">③</span><div><strong>By Source (Pie Chart):</strong> Walk-in / Call Center / Email</div></li>
+        <li><span class="bullet">④</span><div><strong>Agent Performance (Bar Chart):</strong> كل أجنت ومعاه: Total / Resolved / Open</div></li>
+        <li><span class="bullet">⑤</span><div><strong>SLA Summary:</strong> Within / At Risk / Overdue مع نسبة الامتثال</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>الـ KPIs الرقمية</h3>
+      <div class="two-col">
+        <div class="mini-card"><div class="label">⏱ Avg Resolution Time</div><div class="value">متوسط وقت إغلاق التذكرة من لحظة الفتح</div></div>
+        <div class="mini-card"><div class="label">📞 Interactions</div><div class="value">عدد تفاعلات الفريق مع العملاء</div></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>Export التقارير</h3>
+      <p>زرار Download بيتيح تصدير كل الـ Tickets كـ CSV مع الفلاتر اللي اخترتها.</p>
+    </div>
+  </div>
+
+  <!-- ════ INTERACTIONS ════ -->
+  <div id="page-interactions" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5)">📞</div>
+      <div>
+        <div class="path">/dashboard/calls</div>
+        <h2>Interactions — سجل التواصل</h2>
+        <div class="desc">تسجيل ومتابعة كل أشكال التواصل مع العملاء.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>أنواع الـ Interactions</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">📞</span><div><strong>Call:</strong> مكالمة تليفونية</div></li>
+        <li><span class="bullet">📧</span><div><strong>Email:</strong> رسالة إيميل</div></li>
+        <li><span class="bullet">💬</span><div><strong>WhatsApp:</strong> رسالة واتساب</div></li>
+        <li><span class="bullet">👥</span><div><strong>Meeting:</strong> اجتماع</div></li>
+        <li><span class="bullet">🏢</span><div><strong>Site Visit:</strong> زيارة للوحدة أو المشروع</div></li>
+        <li><span class="bullet">📝</span><div><strong>Note:</strong> ملاحظة داخلية</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>إضافة Interaction جديدة</h3>
+      <p>بتضغط "New Interaction"، تختار الـ Type والعميل (بـ Smart Search)، وتكتب الملخص والمدة (بالدقايق). بيتحفظ في <span class="data-source db">Supabase: interactions</span>.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>من <span class="data-source db">Supabase: interactions</span> مع Join على <span class="data-source db">clients</span> و <span class="data-source db">users</span>. آخر 100 تفاعل بترتيب تنازلي.</p>
+    </div>
+  </div>
+
+  <!-- ════ CSAT ════ -->
+  <div id="page-csat" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#fffbeb,#fef3c7)">⭐</div>
+      <div>
+        <div class="path">/dashboard/csat</div>
+        <h2>CSAT Scores — تقييمات رضا العملاء</h2>
+        <div class="desc">Customer Satisfaction — تابع تقييمات العملاء لكل أجنت.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>إزاي التقييم بيتحسب؟</h3>
+      <p>التقييم على سكيل من <strong>1 لـ 5 نجوم</strong>. في صفحة الـ KPIs بيتحول لنسبة مئوية بالمعادلة:</p>
+      <div class="info-box info">
+        <span class="icon-box">🔢</span>
+        <span><strong>CSAT% = (متوسط النجوم ÷ 5) × 100</strong><br/>مثلاً: متوسط 4 نجوم = 80%</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>الفلاتر</h3>
+      <p>تقدر تفلتر على <strong>شهر معين</strong> + <strong>سنة</strong> + <strong>أجنت بعينه</strong>. البيانات بتيجي من <span class="data-source api">GET /api/csat</span>.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>ملخص الأداء</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">📊</span><div><strong>Overall Average:</strong> متوسط تقييمات الشهر</div></li>
+        <li><span class="bullet">📋</span><div><strong>Distribution (1-5):</strong> كام تقييم من كل درجة</div></li>
+        <li><span class="bullet">👤</span><div><strong>Per Agent Summary:</strong> كل أجنت ومعاه متوسطه وعدد تقييماته</div></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ════ KPI ADMIN ════ -->
+  <div id="page-kpi-admin" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#fdf4ff,#fae8ff)">🎯</div>
+      <div>
+        <div class="path">/dashboard/kpi</div>
+        <h2>KPI Dashboard — لوحة أداء الأجنتس</h2>
+        <div class="desc">الأدمن يشوف أداء كل أجنت على كل KPI ويعدل الأهداف.</div>
+        <span class="admin-badge">👑 Admin / Manager فقط</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>من <span class="data-source db">Supabase: kpi_settings</span> (إعدادات الـ KPI) + <span class="data-source db">tickets</span> (عدد التذاكر) + <span class="data-source db">csat_scores</span> (تقييمات الشهر).</p>
+    </div>
+
+    <div class="section-card">
+      <h3>الـ KPI Settings</h3>
+      <p>في أعلى الصفحة جدول بكل الـ KPIs المُعرَّفة. الأدمن يقدر يعدل على:</p>
+      <table class="field-table">
+        <thead><tr><th>الحقل</th><th>المعنى</th></tr></thead>
+        <tbody>
+          <tr><td>Name</td><td>اسم الـ KPI (مثال: Client Satisfaction, SLA Compliance)</td></tr>
+          <tr><td>Target</td><td>النسبة المستهدفة (مثال: 90%)</td></tr>
+          <tr><td>Weight</td><td>أهمية الـ KPI ده في الحساب الكلي (الـ weights المفروض مجموعها 100)</td></tr>
+          <tr><td>Active</td><td>هل الـ KPI ده مُفعَّل في الحساب؟</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-card">
+      <h3>معادلة الحساب الكلي (Overall Score)</h3>
+      <div class="info-box info">
+        <span class="icon-box">🔢</span>
+        <span>
+          <strong>Overall = Σ (score ÷ target × weight) ÷ totalWeight × 100</strong><br/>
+          بيتعمل Normalize على مجموع الـ Weights الفعلي عشان الحساب صح دايماً حتى لو الـ weights اتغيرت.
+        </span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>عرض أداء كل أجنت</h3>
+      <p>أسفل الجدول، كل أجنت بيظهر في Card منفصل مع:</p>
+      <ul class="feature-list">
+        <li><span class="bullet">📊</span><div><strong>Overall Score%:</strong> النتيجة الكلية المحسوبة</div></li>
+        <li><span class="bullet">🎫</span><div><strong>Total / Resolved / SLA Compliance:</strong> أرقام التذاكر</div></li>
+        <li><span class="bullet">⭐</span><div><strong>CSAT Average:</strong> متوسط تقييمات الشهر المختار</div></li>
+        <li><span class="bullet">📋</span><div><strong>KPI Breakdown:</strong> كل KPI لوحده مع شريط التقدم</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>فلترة بالشهر</h3>
+      <p>فلتر الشهر بيأثر على حساب CSAT بس — تذاكر كل الوقت بتتحسب Cumulative.</p>
+    </div>
+  </div>
+
+  <!-- ════ MY KPI ════ -->
+  <div id="page-my-kpi" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe)">📋</div>
+      <div>
+        <div class="path">/dashboard/my-kpi</div>
+        <h2>My KPIs — أداء الأجنت الشخصي</h2>
+        <div class="desc">الأجنت يشوف أداؤه الشخصي على الـ KPIs المحددة.</div>
+        <span class="agent-badge">🧑‍💼 Agent فقط</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>بيتجاب من <span class="data-source db">Supabase: kpi_settings</span> + بيحسب البيانات من tickets الخاصة بالأجنت + csat_scores بتاعته في الشهر الحالي.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>إزاي بيتحسب كل KPI؟</h3>
+      <table class="field-table">
+        <thead><tr><th>اسم KPI</th><th>الحساب</th></tr></thead>
+        <tbody>
+          <tr><td>CSAT / Satisfaction</td><td>متوسط النجوم × 20 = نسبة مئوية</td></tr>
+          <tr><td>SLA Compliance</td><td>Resolved ÷ Total × 100</td></tr>
+          <tr><td>CRM / Logging</td><td>90% ثابت لو عنده تذاكر، 0 لو محدش</td></tr>
+          <tr><td>Database Accuracy</td><td>90% ثابت لو عنده تذاكر</td></tr>
+          <tr><td>Client Engagement</td><td>75% ثابت لو عنده تذاكر</td></tr>
+        </tbody>
+      </table>
+      <div class="info-box warn">
+        <span class="icon-box">⚠️</span>
+        <span>الـ KPIs الثابتة (CRM, Database, Engagement) مؤقتاً بقيم Hardcoded. مستقبلاً ممكن تتربط ببيانات فعلية.</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>Overall Score</h3>
+      <p>بيتحسب بنفس معادلة الـ KPI Dashboard:</p>
+      <div class="info-box info">
+        <span class="icon-box">🔢</span>
+        <span><strong>Overall = Σ (score ÷ target × weight) ÷ totalWeight × 100</strong><br/>محدود بـ 100% كحد أقصى.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ SLA SETTINGS ════ -->
+  <div id="page-sla" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">🛡️</div>
+      <div>
+        <div class="path">/dashboard/sla</div>
+        <h2>SLA Settings — إعدادات وقت الاستجابة</h2>
+        <div class="desc">تحديد كام ساعة المفروض تتحل فيها كل نوع من التذاكر.</div>
+        <span class="admin-badge">👑 Admin / Manager فقط</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>SLA إيه؟</h3>
+      <p><strong>Service Level Agreement</strong> — اتفاقية مستوى الخدمة. بتحدد الحد الأقصى لوقت حل التذكرة حسب نوعها ومصدرها.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>البيانات بتيجي منين؟</h3>
+      <p>من <span class="data-source db">Supabase: sla_settings</span>. لو الأجنت حاول يدخل الصفحة دي، بينقله تلقائياً للـ Dashboard.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>إعدادات الـ SLA Rule</h3>
+      <table class="field-table">
+        <thead><tr><th>الحقل</th><th>المعنى</th></tr></thead>
+        <tbody>
+          <tr><td>Ticket Type</td><td>نوع التذكرة (Maintenance / Complaint / Inquiry...)</td></tr>
+          <tr><td>Source</td><td>مصدر التواصل — All Sources / Walk-in / Call Center / Email</td></tr>
+          <tr><td>Hours</td><td>عدد الساعات المسموح بيها قبل ما التكت يبقى Overdue</td></tr>
+          <tr><td>Active</td><td>هل القاعدة دي مُفعَّلة؟</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-card">
+      <h3>إزاي بيتحسب الـ SLA للتكت؟</h3>
+      <div class="flow">
+        <div class="flow-step"><div class="flow-num">1</div><div class="flow-body"><strong>فتح التكت</strong><span>بيتسجل created_at</span></div></div>
+        <div class="flow-step"><div class="flow-num">2</div><div class="flow-body"><strong>البحث في sla_settings</strong><span>بيدور على أكثر قاعدة تطابق الـ category والـ source</span></div></div>
+        <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>حساب due_date</strong><span>due_date = created_at + sla_hours</span></div></div>
+        <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>المراقبة</strong><span>لو الوقت الحالي تجاوز due_date → SLA Breached</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ NOTIFICATIONS ════ -->
+  <div id="page-notifications" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#fff7ed,#fed7aa)">🔔</div>
+      <div>
+        <div class="path">/dashboard/notifications</div>
+        <h2>Notifications — الإشعارات</h2>
+        <div class="desc">كل الإشعارات الخاصة بيك في مكان واحد.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>أنواع الإشعارات</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">🎫</span><div><strong>Ticket Assigned:</strong> لما تتعين على تكت جديد</div></li>
+        <li><span class="bullet">🔄</span><div><strong>Ticket Updated:</strong> لما يتعمل تغيير على تكت عندك</div></li>
+        <li><span class="bullet">✅</span><div><strong>Ticket Resolved:</strong> لما تكت بتاعك يتحل</div></li>
+        <li><span class="bullet">@</span><div><strong>Mention:</strong> لما حد يذكرك في Comment</div></li>
+        <li><span class="bullet">⚙️</span><div><strong>System:</strong> إشعارات النظام العامة</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>Real-time</h3>
+      <p>الإشعارات بتوصل Realtime بدون Refresh بسبب <strong>Supabase Realtime Subscription</strong> على جدول <span class="data-source db">notifications</span>. البادج الأحمر في الـ Sidebar بيتحدث تلقائياً.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>القراءة والحذف</h3>
+      <p>لما تفتح الصفحة، كل الإشعارات بتتعمل "Mark as Read" تلقائياً. في زرار "Clear All" بيحذفهم كلهم.</p>
+    </div>
+  </div>
+
+  <!-- ════ SETTINGS ════ -->
+  <div id="page-settings" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0)">⚙️</div>
+      <div>
+        <div class="path">/dashboard/settings</div>
+        <h2>Settings — الإعدادات</h2>
+        <div class="desc">إعدادات الحساب الشخصي ودعوة مستخدمين جدد.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>أقسام الإعدادات</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">👤</span><div><strong>Profile:</strong> تعديل اسمك، تليفونك، القسم. بيتحفظ في <span class="data-source db">users</span>.</div></li>
+        <li><span class="bullet">📨</span><div><strong>Invite User:</strong> تبعت Invite Link لأجنت جديد بالإيميل. بيتبعت من <span class="data-source api">POST /api/auth/invite</span>. المدعو بيلاقي لينك في الإيميل يحط فيه الـ Password.</div></li>
+        <li><span class="bullet">🔔</span><div><strong>Notifications:</strong> إعدادات تخصيص الإشعارات (قريباً)</div></li>
+        <li><span class="bullet">🔒</span><div><strong>Security:</strong> تغيير الـ Password الخاص بيك</div></li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h3>Invite User — إزاي بيشتغل؟</h3>
+      <div class="flow">
+        <div class="flow-step"><div class="flow-num">1</div><div class="flow-body"><strong>إدخال البيانات</strong><span>اسم الأجنت الجديد، إيميله، الـ Role (AGENT / MANAGER / ADMIN)</span></div></div>
+        <div class="flow-step"><div class="flow-num">2</div><div class="flow-body"><strong>إرسال الدعوة</strong><span>POST /api/auth/invite بيبعت Invite Email من Supabase Auth</span></div></div>
+        <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>الأجنت بيفتح اللينك</strong><span>بيروح لصفحة /auth/set-password يحط فيها الـ Password</span></div></div>
+        <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>دخول النظام</strong><span>بيقدر يلوج بالإيميل والـ Password الجديد</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ AI ASSISTANT ════ -->
+  <div id="page-ai" class="page-section">
+    <div class="page-header">
+      <div class="page-icon" style="background:linear-gradient(135deg,#fdf4ff,#f3e8ff)">✨</div>
+      <div>
+        <div class="path">/dashboard/ai</div>
+        <h2>AI Assistant — المساعد الذكي</h2>
+        <div class="desc">مساعد AI داخلي بيساعدك في الردود والتحليلات.</div>
+        <span class="all-badge">👁️ الكل يشوفها</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>بيشتغل إزاي؟</h3>
+      <p>بيرسل سؤالك لـ <span class="data-source api">POST /api/ai</span> اللي بيكلم Anthropic Claude API من السيرفر ويرجع الرد. الـ API Key مش بتظهر في المتصفح أبداً.</p>
+    </div>
+
+    <div class="section-card">
+      <h3>الاستخدامات</h3>
+      <ul class="feature-list">
+        <li><span class="bullet">💬</span><div>صياغة ردود احترافية على شكاوى العملاء</div></li>
+        <li><span class="bullet">📝</span><div>تلخيص محتوى التذاكر</div></li>
+        <li><span class="bullet">💡</span><div>اقتراح حلول لمشاكل متكررة</div></li>
+        <li><span class="bullet">🌐</span><div>الترجمة بين العربية والإنجليزية</div></li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+  function show(page) {
+    // Hide all sections
+    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sidebar-link').forEach(b => b.classList.remove('active'));
+
+    // Show target
+    const el = document.getElementById('page-' + page);
+    if (el) el.classList.add('active');
+
+    const nav = document.getElementById('nav-' + page);
+    if (nav) nav.classList.add('active');
+
+    // Scroll top
+    document.querySelector('.main').scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Welcome cards click
+  document.querySelectorAll('.welcome-card[onclick]').forEach(c => {
+    c.addEventListener('keypress', e => { if (e.key === 'Enter') c.click(); });
+    c.setAttribute('tabindex', '0');
+  });
+</script>
+</body>
+</html>
