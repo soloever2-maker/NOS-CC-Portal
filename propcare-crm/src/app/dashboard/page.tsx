@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { formatRelativeTime } from "@/lib/utils";
 import { TICKET_STATUS_LABELS, TICKET_PRIORITY_LABELS, type TicketStatus, type TicketPriority } from "@/types";
+import { createClient } from "@/lib/supabase/client";
 
 interface SLAStats { within: number; atRisk: number; overdue: number; complianceRate: number | null; resolvedWithinSLA: number; resolvedBreached: number; }
 interface Stats {
@@ -40,17 +41,27 @@ export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    const supabase = createClient();
+
+    // Fetch user role directly via Supabase client
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("supabase_id", user.id)
+        .single();
+      if (profile) {
+        setIsAdmin(["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(profile.role));
+      }
+    });
+
     Promise.all([
       fetch("/api/stats").then(r => r.json()),
       fetch("/api/tickets").then(r => r.json()),
-      fetch("/api/users/me").then(r => r.json()),
-    ]).then(([statsRes, ticketsRes, userRes]) => {
+    ]).then(([statsRes, ticketsRes]) => {
       if (statsRes.success) setStats(statsRes.data);
       if (ticketsRes.success) setRecent((ticketsRes.data ?? []).slice(0, 6));
-      if (userRes.success) {
-        const role = userRes.data?.role ?? "";
-        setIsAdmin(["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(role));
-      }
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
