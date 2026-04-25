@@ -174,11 +174,14 @@ useEffect(() => {
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {agentKPIs.map(agent => {
+                const totalWeight = kpiSettings.reduce((sum, kpi) => sum + kpi.weight, 0);
                 const totalWeightedScore = kpiSettings.reduce((sum, kpi) => {
                   const score = getScore(kpi, agent);
-                  return sum + (score / kpi.target * kpi.weight);
+                  return sum + (score / kpi.target) * kpi.weight;
                 }, 0);
-                const overallScore = Math.min(Math.round(totalWeightedScore), 100);
+                const overallScore = totalWeight > 0
+                  ? Math.min(Math.round(totalWeightedScore / totalWeight * 100), 100)
+                  : 0;
 
                 return (
                   <Card key={agent.agentId}>
