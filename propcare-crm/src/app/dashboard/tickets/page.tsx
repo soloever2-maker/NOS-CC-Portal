@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Plus, Search, AlertCircle, Download, X,
@@ -290,7 +291,10 @@ export default function TicketsPage() {
   const [agents,        setAgents]        = useState<{ id: string; name: string }[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [search,        setSearch]        = useState("");
-  const [activeStatus,  setActiveStatus]  = useState<string>("ALL");
+  const searchParams   = useSearchParams();
+  const [activeStatus,  setActiveStatus]  = useState<string>(
+    searchParams.get("status") ?? "ALL"
+  );
   const [activeProject, setActiveProject] = useState<string>("ALL");
   const [compact,       setCompact]       = useState(false);
   const [showExport,    setShowExport]    = useState(false);
