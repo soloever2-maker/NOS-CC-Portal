@@ -14,7 +14,8 @@ import { createClient } from "@/lib/supabase/client";
 interface SLAStats { within: number; atRisk: number; overdue: number; complianceRate: number | null; resolvedWithinSLA: number; resolvedBreached: number; }
 interface Stats {
   totalTickets: number; openTickets: number; inProgress: number;
-  resolvedToday: number; totalClients: number;
+  pendingClient: number; resolvedThisMonth: number; closedThisMonth: number;
+  totalClients: number;
   byStatus: Record<string, number>; byCategory: Record<string, number>;
   sla: SLAStats;
 }
@@ -69,12 +70,16 @@ export default function DashboardPage() {
   const sla = stats?.sla;
   const slaTotal = (sla?.within ?? 0) + (sla?.atRisk ?? 0) + (sla?.overdue ?? 0);
 
+  const now = new Date();
+  const monthName = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
   const statCards = [
-    { label: "Total Tickets", value: stats?.totalTickets ?? 0, icon: Ticket, color: "var(--gold-500)" },
-    { label: "Open", value: stats?.openTickets ?? 0, icon: AlertCircle, color: "var(--danger)" },
-    { label: "In Progress", value: stats?.inProgress ?? 0, icon: Clock, color: "var(--warning)" },
-    { label: "Resolved Today", value: stats?.resolvedToday ?? 0, icon: CheckCircle, color: "var(--success)" },
-    { label: "Clients", value: stats?.totalClients ?? 0, icon: Users, color: "var(--info)" },
+    { label: "Open",               value: stats?.openTickets ?? 0,       icon: AlertCircle, color: "var(--danger)",  sub: "needs action" },
+    { label: "In Progress",        value: stats?.inProgress ?? 0,         icon: Clock,       color: "var(--warning)", sub: "being handled" },
+    { label: "Pending Client",     value: stats?.pendingClient ?? 0,      icon: Clock,       color: "var(--info)",    sub: "awaiting client" },
+    { label: `Resolved (${monthName})`, value: stats?.resolvedThisMonth ?? 0, icon: CheckCircle, color: "var(--success)", sub: "this month" },
+    { label: `Closed (${monthName})`,   value: stats?.closedThisMonth ?? 0,   icon: CheckCircle, color: "var(--text-muted)", sub: "this month" },
+    { label: "Total Tickets",      value: stats?.totalTickets ?? 0,       icon: Ticket,      color: "var(--gold-500)", sub: "all time" },
   ];
 
   const categoryData = Object.entries(stats?.byCategory ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -97,10 +102,11 @@ export default function DashboardPage() {
               <div className="w-8 h-8 rounded-[8px] flex items-center justify-center mb-3" style={{ background: "var(--black-700)" }}>
                 <s.icon className="w-4 h-4" style={{ color: s.color }} />
               </div>
-              <p className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>
+              <p className="text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: s.color }}>
                 {loading ? "—" : s.value}
               </p>
-              <p className="text-xs font-semibold mt-0.5" style={{ color: "var(--text-secondary)" }}>{s.label}</p>
+              <p className="text-xs font-semibold mt-0.5" style={{ color: "var(--text-primary)" }}>{s.label}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>{s.sub}</p>
             </div>
           ))}
         </div>
@@ -114,7 +120,7 @@ export default function DashboardPage() {
               {sla?.complianceRate !== null && sla?.complianceRate !== undefined && (
                 <span className="text-xs font-bold px-2.5 py-1 rounded-full ml-1"
                   style={{ background: sla.complianceRate >= 80 ? "rgba(34,197,94,0.12)" : sla.complianceRate >= 60 ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)", color: sla.complianceRate >= 80 ? "var(--success)" : sla.complianceRate >= 60 ? "var(--warning)" : "var(--danger)" }}>
-                  {sla.complianceRate}% compliance this month
+                  {sla.complianceRate}% compliance — {monthName}
                 </span>
               )}
             </div>
@@ -176,7 +182,7 @@ export default function DashboardPage() {
                 ))}
                 {sla && sla.resolvedWithinSLA + sla.resolvedBreached > 0 && (
                   <span className="text-[11px] ml-auto" style={{ color: "var(--text-muted)" }}>
-                    This month: {sla.resolvedWithinSLA} resolved within SLA, {sla.resolvedBreached} breached
+                    {monthName}: {sla.resolvedWithinSLA} resolved within SLA, {sla.resolvedBreached} breached
                   </span>
                 )}
               </div>
