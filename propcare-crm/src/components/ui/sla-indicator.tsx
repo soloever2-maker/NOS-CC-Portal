@@ -58,12 +58,14 @@ export function SLAIndicator({ category, source, createdAt, status, resolvedAt, 
 
   if (!sla || sla.status === "no_sla") return null;
 
-  const icons = {
-    within: <Clock className={size === "sm" ? "w-3 h-3" : "w-4 h-4"} />,
-    at_risk: <AlertTriangle className={size === "sm" ? "w-3 h-3" : "w-4 h-4"} />,
-    overdue: <XCircle className={size === "sm" ? "w-3 h-3" : "w-4 h-4"} />,
-    resolved: <CheckCircle className={size === "sm" ? "w-3 h-3" : "w-4 h-4"} />,
-    no_sla: null,
+  const iconEl = size === "sm" ? "w-3 h-3" : "w-4 h-4";
+  const icons: Record<string, React.ReactNode> = {
+    within:           <Clock         className={iconEl} />,
+    at_risk:          <AlertTriangle className={iconEl} />,
+    overdue:          <XCircle       className={iconEl} />,
+    resolved:         <CheckCircle   className={iconEl} />,
+    resolved_breached:<XCircle       className={iconEl} />,
+    no_sla:           null,
   };
 
   if (size === "sm") {
