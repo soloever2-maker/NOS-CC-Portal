@@ -76,7 +76,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isAuthPage    = pathname.startsWith("/auth");
+  const isAuthPage = pathname.startsWith("/auth") && !pathname.startsWith("/auth/callback") && !pathname.startsWith("/auth/set-password");
   const isPublicRoute = pathname === "/";
 
   // ── 1. UNCHANGED — Unauthenticated → login ─────────────────────────────
