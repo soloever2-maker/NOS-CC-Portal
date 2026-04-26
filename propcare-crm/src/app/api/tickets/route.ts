@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
       due_date: dueDate?.toISOString() ?? null, // always = created_at + sla_hours
       client_id: body.clientId || null,
       unit_id: body.unitId || null,
-      assigned_to_id: isAdmin ? (body.assignedToId || null) : null,
+      assigned_to_id: isAdmin ? (body.assignedToId || null) : (userRecord?.id ?? null),
       created_by_id: userRecord?.id ?? user.id,
       tags: body.tags ?? [],
       attachments: [],
