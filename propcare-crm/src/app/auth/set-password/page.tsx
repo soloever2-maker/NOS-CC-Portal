@@ -34,8 +34,42 @@ export default function SetPasswordPage() {
     setLoading(true);
     try {
       const supabase = createClient();
+
+      // 1. Set the password
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
+
+      // 2. Get the current auth user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Could not retrieve user after password set");
+
+      // 3. Ensure a row exists in the public users table
+      //    (it won't exist yet for invited users — invite only creates auth.users)
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("supabase_id", user.id)
+        .single();
+
+      if (!existingUser) {
+        // Pull name & role that were passed as metadata when the invite was sent
+        const meta = user.user_metadata ?? {};
+        const name  = (meta.name  as string) || user.email?.split("@")[0] || "User";
+        const role  = (meta.role  as string) || "AGENT";
+
+        const { error: insertError } = await supabase.from("users").insert({
+          supabase_id: user.id,
+          email:       user.email,
+          name,
+          role,
+        });
+
+        if (insertError) {
+          console.error("Failed to create user profile:", insertError);
+          // Non-fatal — user can still log in; profile creation can be retried
+        }
+      }
+
       setDone(true);
       setTimeout(() => router.replace("/dashboard"), 2000);
     } catch (err: unknown) {
