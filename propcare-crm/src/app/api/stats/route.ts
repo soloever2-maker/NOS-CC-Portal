@@ -8,23 +8,27 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
+    const { data: profile } = await supabase.from("users").select("id, role").eq("supabase_id", user.id).single();
+    const isAdmin = profile && ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(profile.role);
+
     const { searchParams } = new URL(req.url);
     const project  = searchParams.get("project");
     const fromDate = searchParams.get("from");
     const toDate   = searchParams.get("to");
 
-    // ── Base query (respects from/to/project filters) ──────────────────
+    // ── Base query — agents only see their own tickets ─────────────────
     const base = () => {
       let q = supabase.from("tickets").select("*", { count: "exact", head: true });
+      if (!isAdmin && profile) q = q.eq("assigned_to_id", profile.id);
       if (project)  q = q.eq("project", project);
       if (fromDate) q = q.gte("created_at", fromDate);
       if (toDate)   q = q.lte("created_at", toDate);
       return q;
     };
 
-    // ── Resolved/Closed base (filter by resolved_at in period) ─────────
     const resolvedBase = () => {
       let q = supabase.from("tickets").select("*", { count: "exact", head: true });
+      if (!isAdmin && profile) q = q.eq("assigned_to_id", profile.id);
       if (project) q = q.eq("project", project);
       if (fromDate) q = q.gte("resolved_at", fromDate);
       if (toDate)   q = q.lte("resolved_at", toDate);
@@ -49,18 +53,9 @@ export async function GET(req: NextRequest) {
       supabase.from("clients").select("*", { count: "exact", head: true }),
     ]);
 
-    // ── By Status ───────────────────────────────────────────────────────
-    let statusQuery = supabase.from("tickets").select("status");
-    if (project)  statusQuery = statusQuery.eq("project", project);
-    if (fromDate) statusQuery = statusQuery.gte("created_at", fromDate);
-    if (toDate)   statusQuery = statusQuery.lte("created_at", toDate);
-    const { data: byStatusData } = await statusQuery;
-    const statusCounts = (byStatusData ?? []).reduce<Record<string, number>>((acc, t) => {
-      acc[t.status] = (acc[t.status] ?? 0) + 1; return acc;
-    }, {});
-
     // ── By Category ─────────────────────────────────────────────────────
     let catQuery = supabase.from("tickets").select("category");
+    if (!isAdmin && profile) catQuery = catQuery.eq("assigned_to_id", profile.id);
     if (project)  catQuery = catQuery.eq("project", project);
     if (fromDate) catQuery = catQuery.gte("created_at", fromDate);
     if (toDate)   catQuery = catQuery.lte("created_at", toDate);
@@ -71,6 +66,7 @@ export async function GET(req: NextRequest) {
 
     // ── By Source ───────────────────────────────────────────────────────
     let srcQuery = supabase.from("tickets").select("source");
+    if (!isAdmin && profile) srcQuery = srcQuery.eq("assigned_to_id", profile.id);
     if (project)  srcQuery = srcQuery.eq("project", project);
     if (fromDate) srcQuery = srcQuery.gte("created_at", fromDate);
     if (toDate)   srcQuery = srcQuery.lte("created_at", toDate);
@@ -85,6 +81,7 @@ export async function GET(req: NextRequest) {
       .select("created_at, resolved_at")
       .in("status", ["RESOLVED", "CLOSED"])
       .not("resolved_at", "is", null);
+    if (!isAdmin && profile) resQuery = resQuery.eq("assigned_to_id", profile.id);
     if (project)  resQuery = resQuery.eq("project", project);
     if (fromDate) resQuery = resQuery.gte("resolved_at", fromDate);
     if (toDate)   resQuery = resQuery.lte("resolved_at", toDate);
@@ -98,28 +95,30 @@ export async function GET(req: NextRequest) {
       avgResolutionHours = Math.round((total / resolvedTickets.length) * 10) / 10;
     }
 
-    // ── Agent Performance ───────────────────────────────────────────────
-    let agentQuery = supabase.from("tickets")
-      .select("assigned_to_id, status, assigned_to:users!tickets_assigned_to_id_fkey(name)");
-    if (project)  agentQuery = agentQuery.eq("project", project);
-    if (fromDate) agentQuery = agentQuery.gte("created_at", fromDate);
-    if (toDate)   agentQuery = agentQuery.lte("created_at", toDate);
-    const { data: agentTickets } = await agentQuery;
-
-    const agentMap: Record<string, { name: string; total: number; resolved: number; open: number }> = {};
-    for (const t of agentTickets ?? []) {
-      if (!t.assigned_to_id) continue;
-      const name = Array.isArray(t.assigned_to)
-        ? (t.assigned_to[0]?.name ?? "Unknown")
-        : (t.assigned_to as { name: string } | null)?.name ?? "Unknown";
-      if (!agentMap[t.assigned_to_id]) agentMap[t.assigned_to_id] = { name, total: 0, resolved: 0, open: 0 };
-      const entry = agentMap[t.assigned_to_id];
-      if (!entry) continue;
-      entry.total++;
-      if (["RESOLVED", "CLOSED"].includes(t.status)) entry.resolved++;
-      if (["OPEN", "IN_PROGRESS", "PENDING_CLIENT"].includes(t.status)) entry.open++;
+    // ── Agent Performance (admin only) ──────────────────────────────────
+    let agentPerformance: { name: string; total: number; resolved: number; open: number }[] = [];
+    if (isAdmin) {
+      let agentQuery = supabase.from("tickets")
+        .select("assigned_to_id, status, assigned_to:users!tickets_assigned_to_id_fkey(name)");
+      if (project)  agentQuery = agentQuery.eq("project", project);
+      if (fromDate) agentQuery = agentQuery.gte("created_at", fromDate);
+      if (toDate)   agentQuery = agentQuery.lte("created_at", toDate);
+      const { data: agentTickets } = await agentQuery;
+      const agentMap: Record<string, { name: string; total: number; resolved: number; open: number }> = {};
+      for (const t of agentTickets ?? []) {
+        if (!t.assigned_to_id) continue;
+        const name = Array.isArray(t.assigned_to)
+          ? (t.assigned_to[0]?.name ?? "Unknown")
+          : (t.assigned_to as { name: string } | null)?.name ?? "Unknown";
+        if (!agentMap[t.assigned_to_id]) agentMap[t.assigned_to_id] = { name, total: 0, resolved: 0, open: 0 };
+        const entry = agentMap[t.assigned_to_id];
+        if (!entry) continue;
+        entry.total++;
+        if (["RESOLVED", "CLOSED"].includes(t.status)) entry.resolved++;
+        if (["OPEN", "IN_PROGRESS", "PENDING_CLIENT"].includes(t.status)) entry.open++;
+      }
+      agentPerformance = Object.values(agentMap).sort((a, b) => b.total - a.total).slice(0, 10);
     }
-    const agentPerformance = Object.values(agentMap).sort((a, b) => b.total - a.total).slice(0, 10);
 
     // ── SLA Stats ───────────────────────────────────────────────────────
     const { data: slaSettings } = await supabase.from("sla_settings").select("*").eq("is_active", true);
@@ -129,10 +128,10 @@ export async function GET(req: NextRequest) {
       slaMap[key] = s.hours;
     }
 
-    // Active tickets SLA
     let openSlaQuery = supabase.from("tickets")
       .select("id, category, source, created_at, sla_hours")
       .in("status", ["OPEN", "IN_PROGRESS", "PENDING_CLIENT"]);
+    if (!isAdmin && profile) openSlaQuery = openSlaQuery.eq("assigned_to_id", profile.id);
     if (project) openSlaQuery = openSlaQuery.eq("project", project);
     const { data: openTicketsData } = await openSlaQuery;
 
@@ -151,11 +150,11 @@ export async function GET(req: NextRequest) {
       else                 slaWithin++;
     }
 
-    // Resolved SLA compliance (in selected period)
     let resolvedSlaQuery = supabase.from("tickets")
       .select("category, source, created_at, resolved_at, sla_hours")
       .in("status", ["RESOLVED", "CLOSED"])
       .not("resolved_at", "is", null);
+    if (!isAdmin && profile) resolvedSlaQuery = resolvedSlaQuery.eq("assigned_to_id", profile.id);
     if (project)  resolvedSlaQuery = resolvedSlaQuery.eq("project", project);
     if (fromDate) resolvedSlaQuery = resolvedSlaQuery.gte("resolved_at", fromDate);
     if (toDate)   resolvedSlaQuery = resolvedSlaQuery.lte("resolved_at", toDate);
@@ -188,7 +187,6 @@ export async function GET(req: NextRequest) {
         closedCount:     closedCount     ?? 0,
         totalClients:    totalClients    ?? 0,
         avgResolutionHours,
-        byStatus:        statusCounts,
         byCategory:      categoryCounts,
         bySource:        sourceCounts,
         agentPerformance,
