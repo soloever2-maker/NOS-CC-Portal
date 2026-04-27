@@ -1,14 +1,12 @@
-// src/app/api/tickets/route.ts  (POST section updated — GET unchanged)
-// Only the POST handler shown here; merge the GET handler from your existing file.
+// src/app/api/tickets/route.ts
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { generateCode } from "@/lib/utils";
 import { CreateTicketSchema } from "@/lib/validations";
-import { sendNotificationEmail } from "@/lib/send-email";
 
-// ── GET — unchanged, copy from your existing route.ts ────────────────────────
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -100,7 +98,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ── POST — creates ticket + in-app notification + email ───────────────────────
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -161,40 +158,17 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    // ── In-app notification + email if ticket is assigned at creation ─────
+    // ── In-app notification on ticket creation ────────────────────────────
     if (data.assigned_to_id) {
-      const notifTitle = "New Ticket Assigned";
-      const notifMsg   = `${code} — ${body.title}`;
-      const notifLink  = `/dashboard/tickets/${data.id}`;
-
-      // 1. In-app notification (triggers real-time toast on recipient's screen)
       await supabase.from("notifications").insert({
         id:      crypto.randomUUID(),
         user_id: data.assigned_to_id,
         type:    "TICKET_ASSIGNED",
-        title:   notifTitle,
-        message: notifMsg,
-        link:    notifLink,
+        title:   "New Ticket Assigned",
+        message: `${code} — ${body.title}`,
+        link:    `/dashboard/tickets/${data.id}`,
         is_read: false,
       });
-
-      // 2. Email notification
-      const { data: assignee } = await supabase
-        .from("users")
-        .select("name, email")
-        .eq("id", data.assigned_to_id)
-        .single();
-
-      if (assignee?.email) {
-        await sendNotificationEmail({
-          to:      assignee.email,
-          name:    assignee.name ?? "Agent",
-          title:   notifTitle,
-          message: notifMsg,
-          link:    notifLink,
-          type:    "TICKET_ASSIGNED",
-        });
-      }
     }
 
     return NextResponse.json({ success: true, data });
