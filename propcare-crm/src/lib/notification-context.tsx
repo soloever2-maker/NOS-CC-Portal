@@ -116,7 +116,7 @@ function NotificationToast({ item, onClose }: { item: ToastItem; onClose: () => 
           {item.title}
         </ToastPrimitive.Title>
         <ToastPrimitive.Description style={{
-          display: "block", fontSize: "12px",
+          fontSize: "12px",
           color: "var(--text-secondary, #9E9372)", lineHeight: 1.4,
           overflow: "hidden", display: "-webkit-box",
           WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
