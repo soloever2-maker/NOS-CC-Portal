@@ -155,8 +155,8 @@ export async function POST(req: NextRequest) {
       contact_status: body.contactStatus ?? "NOT_CONTACTED",
       project: body.project || null,
       source,
-      sla_hours: resolvedSlaHours,
-      due_date: dueDate?.toISOString() ?? null,
+      sla_hours: resolvedSlaHours,   // stored at creation from SLA settings
+      due_date: dueDate?.toISOString() ?? null, // always = created_at + sla_hours
       client_id: body.clientId || null,
       unit_id: body.unitId || null,
       assigned_to_id: isAdmin ? (body.assignedToId || null) : (userRecord?.id ?? null),
