@@ -113,11 +113,59 @@ export async function PATCH(
       }
     }
 
-    // ── Optional: notify the agent when their ticket is updated by someone else ──
-    // Uncomment if you want agents to get notified on any status/priority change
-    // if (body.status && prevAssignee && prevAssignee !== profile.id) {
-    //   await supabase.from("notifications").insert({ ... TICKET_UPDATED ... });
-    // }
+    // ── Notifications on status change ───────────────────────────────────────
+    // Notify the assigned agent when an admin changes the ticket status
+    // (don't notify if the agent changed it themselves)
+    if (body.status && ticket?.assigned_to_id && ticket.assigned_to_id !== profile.id) {
+      const ticketCode  = ticket?.code  ?? "TKT-???";
+      const ticketTitle = ticket?.title ?? "Ticket";
+      const notifLink   = `/dashboard/tickets/${params.id}`;
+
+      const statusLabels: Record<string, string> = {
+        OPEN:        "Open",
+        IN_PROGRESS: "In Progress",
+        RESOLVED:    "Resolved",
+        CLOSED:      "Closed",
+        ON_HOLD:     "On Hold",
+      };
+      const statusLabel = statusLabels[body.status] ?? body.status;
+
+      const isResolved = body.status === "RESOLVED" || body.status === "CLOSED";
+      const notifType  = isResolved ? "TICKET_RESOLVED" : "TICKET_UPDATED";
+      const notifTitle = isResolved
+        ? "Ticket Marked as Resolved"
+        : `Ticket Status Updated to ${statusLabel}`;
+      const notifMsg   = `${ticketCode} — ${ticketTitle}`;
+
+      // 1. In-app notification
+      await supabase.from("notifications").insert({
+        id:      crypto.randomUUID(),
+        user_id: ticket.assigned_to_id,
+        type:    notifType,
+        title:   notifTitle,
+        message: notifMsg,
+        link:    notifLink,
+        is_read: false,
+      });
+
+      // 2. Email
+      const { data: assignee } = await supabase
+        .from("users")
+        .select("name, email")
+        .eq("id", ticket.assigned_to_id)
+        .single();
+
+      if (assignee?.email) {
+        await sendNotificationEmail({
+          to:      assignee.email,
+          name:    assignee.name ?? "Agent",
+          title:   notifTitle,
+          message: notifMsg,
+          link:    notifLink,
+          type:    notifType as "TICKET_RESOLVED" | "TICKET_UPDATED",
+        });
+      }
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (err) {
