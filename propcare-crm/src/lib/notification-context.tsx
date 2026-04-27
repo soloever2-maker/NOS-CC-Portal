@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  createContext, useContext, useEffect, useState, useCallback, useRef,
+  createContext, useContext, useEffect, useState, useCallback,
 } from "react";
 import * as ToastPrimitive from "@radix-ui/react-toast";
 import { Bell, Ticket, CheckCircle, AtSign, Settings, X } from "lucide-react";
@@ -148,7 +148,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
   const [userId,      setUserId]      = useState<string | null>(null);
   const [toasts,      setToasts]      = useState<ToastItem[]>([]);
-  const isFirst = useRef(true);
 
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -182,7 +181,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           table:  "notifications",
           filter: `user_id=eq.${profile.id}`,
         }, (payload) => {
-          if (isFirst.current) { isFirst.current = false; return; }
           playDing();
           fetchCount(profile.id);
 
