@@ -1,6 +1,4 @@
-// src/app/api/tickets/route.ts
 export const dynamic = "force-dynamic";
-
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +18,7 @@ export async function GET(req: NextRequest) {
     const project = searchParams.get("project");
     const isAdmin = profile && ["ADMIN","SUPER_ADMIN","MANAGER"].includes(profile.role);
 
+    // Fetch SLA settings once
     const { data: slaSettings } = await supabase.from("sla_settings").select("ticket_type, source, hours").eq("is_active", true);
     const slaMap: Record<string, number> = {};
     for (const s of slaSettings ?? []) {
@@ -45,6 +44,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
+    // Fetch CSAT scores for resolved/closed tickets
     const resolvedIds = (data ?? []).filter(t => ["RESOLVED","CLOSED"].includes(t.status)).map(t => t.id);
     let csatMap: Record<string, number> = {};
     if (resolvedIds.length > 0) {
@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
       for (const c of csatData ?? []) csatMap[c.ticket_id] = c.score;
     }
 
+  // Fetch reassignment history
     const ticketIds = (data ?? []).map(t => t.id);
     let reassignMap: Record<string, { fromName: string; toName: string; at: string } | null> = {};
     if (ticketIds.length > 0) {
@@ -68,7 +69,9 @@ export async function GET(req: NextRequest) {
           ...historyData.map(h => h.new_value),
         ].filter(Boolean))];
 
-        const { data: historyUsers } = await supabase.from("users").select("id, name").in("id", userIds);
+        const { data: historyUsers } = await supabase
+          .from("users").select("id, name").in("id", userIds);
+
         const userNameMap: Record<string, string> = {};
         for (const u of historyUsers ?? []) userNameMap[u.id] = u.name;
 
@@ -84,13 +87,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Inject computed SLA hours + CSAT + reassignment into each ticket
     const enriched = (data ?? []).map(t => ({
       ...t,
-      computed_sla_hours: getSlaHours(t.category, t.source, t.sla_hours),
-      csat_score:         csatMap[t.id] ?? null,
-      last_reassignment:  reassignMap[t.id] ?? null,
+      computed_sla_hours:  getSlaHours(t.category, t.source, t.sla_hours),
+      csat_score:          csatMap[t.id] ?? null,
+      last_reassignment:   reassignMap[t.id] ?? null,
     }));
-
+    
     return NextResponse.json({ success: true, data: enriched });
   } catch (err) {
     console.error(err);
@@ -118,8 +122,12 @@ export async function POST(req: NextRequest) {
     const body = parseResult.data;
     const code = generateCode("TKT");
 
+    // ── Resolve SLA hours at creation time so stats always have accurate data ──
     const { data: slaSettings } = await supabase
-      .from("sla_settings").select("ticket_type, source, hours").eq("is_active", true);
+      .from("sla_settings")
+      .select("ticket_type, source, hours")
+      .eq("is_active", true);
+
     const slaMap: Record<string, number> = {};
     for (const s of slaSettings ?? []) {
       const key = s.source ? `${s.ticket_type}:${s.source}` : `${s.ticket_type}:default`;
@@ -128,45 +136,45 @@ export async function POST(req: NextRequest) {
     const category = body.category ?? "OTHER";
     const source   = body.source ?? "walk_in";
     const resolvedSlaHours =
-      slaMap[`${category}:${source}`] ?? slaMap[`${category}:default`] ?? null;
+      slaMap[`${category}:${source}`] ??
+      slaMap[`${category}:default`] ??
+      null;
 
+    // Calculate due_date = now + sla_hours (never taken from user input)
     const createdAt = new Date();
     const dueDate = resolvedSlaHours
       ? new Date(createdAt.getTime() + resolvedSlaHours * 60 * 60 * 1000)
       : null;
 
     const { data, error } = await supabase.from("tickets").insert({
-      id:             crypto.randomUUID(),
-      code,
-      title:          body.title,
-      description:    body.description,
-      status:         body.status ?? "OPEN",
-      priority:       body.priority ?? "MEDIUM",
+      id: crypto.randomUUID(), code,
+      title: body.title, description: body.description,
+      status: body.status ?? "OPEN",
+      priority: body.priority ?? "MEDIUM",
       category,
       contact_status: body.contactStatus ?? "NOT_CONTACTED",
-      project:        body.project || null,
+      project: body.project || null,
       source,
-      sla_hours:      resolvedSlaHours,
-      due_date:       dueDate?.toISOString() ?? null,
-      client_id:      body.clientId || null,
-      unit_id:        body.unitId || null,
+      sla_hours: resolvedSlaHours,
+      due_date: dueDate?.toISOString() ?? null,
+      client_id: body.clientId || null,
+      unit_id: body.unitId || null,
       assigned_to_id: isAdmin ? (body.assignedToId || null) : (userRecord?.id ?? null),
-      created_by_id:  userRecord?.id ?? user.id,
-      tags:           body.tags ?? [],
-      attachments:    [],
+      created_by_id: userRecord?.id ?? user.id,
+      tags: body.tags ?? [],
+      attachments: [],
     }).select().single();
 
     if (error) throw error;
 
-    // ── In-app notification on ticket creation ────────────────────────────
-    if (data.assigned_to_id) {
+    if (data.assigned_to_id && userRecord) {
       await supabase.from("notifications").insert({
-        id:      crypto.randomUUID(),
+        id: crypto.randomUUID(),
         user_id: data.assigned_to_id,
-        type:    "TICKET_ASSIGNED",
-        title:   "New Ticket Assigned",
+        type: "TICKET_ASSIGNED",
+        title: "New Ticket Assigned",
         message: `${code} — ${body.title}`,
-        link:    `/dashboard/tickets/${data.id}`,
+        link: `/dashboard/tickets/${data.id}`,
         is_read: false,
       });
     }
