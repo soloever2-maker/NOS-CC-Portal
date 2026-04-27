@@ -12,11 +12,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .select("id, role").eq("supabase_id", user.id).single();
     if (!profile) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-    // Fetch full ticket — need created_at to recalculate due_date when SLA changes
+    // Check access — admin can edit any, agent only their own
     const { data: ticket } = await supabase.from("tickets")
-      .select("assigned_to_id, created_by_id, created_at, sla_hours")
-      .eq("id", params.id).single();
-
+      .select("assigned_to_id, created_by_id").eq("id", params.id).single();
     const isAdmin = ["ADMIN","SUPER_ADMIN","MANAGER"].includes(profile.role);
     const canEdit = isAdmin || profile.id === ticket?.assigned_to_id || profile.id === ticket?.created_by_id;
     if (!canEdit) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
@@ -30,23 +28,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body.priority)      updates.priority       = body.priority;
     if (body.status)        updates.status         = body.status;
     if (body.project)       updates.project        = body.project;
-    if (body.tags)          updates.tags           = body.tags;
+    if (body.tags)                        updates.tags           = body.tags;
     if (body.unitId !== undefined)        updates.unit_id        = body.unitId || null;
     if (body.contactStatus !== undefined) updates.contact_status = body.contactStatus;
+    if (body.slaHours !== undefined)      updates.sla_hours      = body.slaHours;
     if (body.assignedToId !== undefined && isAdmin) updates.assigned_to_id = body.assignedToId || null;
     if (body.status === "RESOLVED") updates.resolved_at = new Date().toISOString();
     if (body.status === "CLOSED")   updates.closed_at   = new Date().toISOString();
-
-    // ── SLA update: always recalculate due_date from created_at ──────────
-    // This ensures due_date is NEVER before created_at and is always consistent
-    if (body.slaHours !== undefined && ticket?.created_at) {
-      const hours = Number(body.slaHours);
-      updates.sla_hours = hours;
-      // due_date = ticket creation time + SLA hours
-      const due = new Date(ticket.created_at);
-      due.setTime(due.getTime() + hours * 60 * 60 * 1000);
-      updates.due_date = due.toISOString();
-    }
 
     const { data, error } = await supabase.from("tickets")
       .update(updates).eq("id", params.id).select().single();

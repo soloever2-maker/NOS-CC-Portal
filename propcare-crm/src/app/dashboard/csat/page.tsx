@@ -7,7 +7,6 @@ import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRelativeTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-
 interface CSATEntry {
   id: string; score: number; notes?: string | null; month: number; year: number; created_at: string;
   ticket: { id: string; code: string; title: string } | null;
@@ -21,53 +20,40 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 const STAR_COLORS = ["","#ef4444","#f97316","#f59e0b","#84cc16","#22c55e"];
 
 export default function CSATPage() {
-  const [entries,     setEntries]     = useState<CSATEntry[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [isAdmin,     setIsAdmin]     = useState(false);
-  const [roleLoaded,  setRoleLoaded]  = useState(false);
+  const [entries, setEntries] = useState<CSATEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterMonth, setFilterMonth] = useState<number>(new Date().getMonth() + 1);
   const [filterYear,  setFilterYear]  = useState<number>(new Date().getFullYear());
   const [filterAgent, setFilterAgent] = useState<string>("ALL");
-  const [agents,      setAgents]      = useState<{ id: string; name: string }[]>([]);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
 
-  // Load role once
   useEffect(() => {
-    const sb = createClient();
-    sb.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
-      const { data: p } = await sb.from("users").select("role").eq("supabase_id", user.id).single();
-      if (p) setIsAdmin(["ADMIN","SUPER_ADMIN","MANAGER"].includes(p.role));
-      setRoleLoaded(true);
-    });
-  }, []);
-
-  // Load agents list (admin only)
-  useEffect(() => {
-    if (!isAdmin) return;
     const supabase = createClient();
     supabase.from("users").select("id, name").eq("is_active", true).order("name")
       .then(({ data }) => setAgents(data ?? []));
-  }, [isAdmin]);
+  }, []);
 
-  // Fetch CSAT scores
   useEffect(() => {
-    if (!roleLoaded) return;
     setLoading(true);
     const params = new URLSearchParams({
       month: String(filterMonth),
       year:  String(filterYear),
     });
-    if (isAdmin && filterAgent !== "ALL") params.set("agentId", filterAgent);
+    if (filterAgent !== "ALL") params.set("agentId", filterAgent);
 
     fetch(`/api/csat?${params}`)
       .then(r => r.json())
-      .then(json => { setEntries(json.success ? json.data : []); setLoading(false); })
+      .then(json => {
+        setEntries(json.success ? json.data : []);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
-  }, [filterMonth, filterYear, filterAgent, roleLoaded, isAdmin]);
+  }, [filterMonth, filterYear, filterAgent]);
 
+  // Aggregate stats
   const avg = entries.length > 0 ? entries.reduce((s, e) => s + e.score, 0) / entries.length : 0;
   const dist = [0,0,0,0,0,0];
-  entries.forEach(e => { if (e.score >= 1 && e.score <= 5) dist[e.score] = (dist[e.score] ?? 0) + 1; });
+  entries.forEach(e => { if (e.score >= 1 && e.score <= 5) { dist[e.score] = (dist[e.score] ?? 0) + 1; } });
 
   const agentSummary: AgentSummary[] = Object.values(
     entries.reduce<Record<string, AgentSummary>>((acc, e) => {
@@ -84,39 +70,39 @@ export default function CSATPage() {
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
-      <Topbar
-        title="CSAT Scores"
-        subtitle={isAdmin ? "Customer Satisfaction ratings by ticket" : "My Customer Satisfaction ratings"}
-      />
+      <Topbar title="CSAT Scores" subtitle="Customer Satisfaction ratings by ticket" />
 
       <div className="flex-1 p-5 space-y-5">
 
         {/* Filters */}
         <div className="flex flex-wrap gap-2 items-center">
+          {/* Month */}
           <div className="relative">
-            <select value={filterMonth} onChange={e => setFilterMonth(Number(e.target.value))} className="crm-input h-8 text-xs pr-7 appearance-none">
+            <select
+              value={filterMonth}
+              onChange={e => setFilterMonth(Number(e.target.value))}
+              className="crm-input h-8 text-xs pr-7 appearance-none"
+              style={{ paddingRight: "1.75rem" }}
+            >
               {MONTHS.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
             </select>
             <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
           </div>
+          {/* Year */}
           <div className="relative">
             <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))} className="crm-input h-8 text-xs pr-7 appearance-none">
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
           </div>
-
-          {/* Agent filter — admin only */}
-          {isAdmin && (
-            <div className="relative">
-              <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)} className="crm-input h-8 text-xs pr-7 appearance-none" style={{ minWidth: 140 }}>
-                <option value="ALL">All Agents</option>
-                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-              <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
-            </div>
-          )}
-
+          {/* Agent */}
+          <div className="relative">
+            <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)} className="crm-input h-8 text-xs pr-7 appearance-none" style={{ minWidth: 140 }}>
+              <option value="ALL">All Agents</option>
+              {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
+          </div>
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             {MONTHS[filterMonth-1]} {filterYear} — {entries.length} score{entries.length !== 1 ? "s" : ""}
           </span>
@@ -186,53 +172,31 @@ export default function CSATPage() {
             </CardContent>
           </Card>
 
-          {/* Agent Leaderboard — admin only */}
-          {isAdmin ? (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>AGENT SCORES</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {agentSummary.length === 0 ? (
-                  <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>No data</p>
-                ) : agentSummary.map((a, i) => (
-                  <div key={a.id} className="flex items-center gap-3">
-                    <span className="text-sm font-bold w-5 shrink-0" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{a.name}</p>
-                      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{a.count} rating{a.count !== 1 ? "s" : ""}</p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Star className="w-3.5 h-3.5" fill={STAR_COLORS[Math.round(a.avg)]} style={{ color: STAR_COLORS[Math.round(a.avg)] }} />
-                      <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{a.avg.toFixed(1)}</span>
-                    </div>
+          {/* Agent Leaderboard */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>AGENT SCORES</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {agentSummary.length === 0 ? (
+                <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>No data</p>
+              ) : agentSummary.map((a, i) => (
+                <div key={a.id} className="flex items-center gap-3">
+                  <span className="text-sm font-bold w-5 shrink-0" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{a.name}</p>
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{a.count} rating{a.count !== 1 ? "s" : ""}</p>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          ) : (
-            /* Agent sees their own score summary instead */
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>MY PERFORMANCE</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center justify-center py-6 gap-3">
-                <p className="text-6xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: avg >= 4 ? "#22c55e" : avg >= 3 ? "#f59e0b" : avg > 0 ? "#ef4444" : "var(--text-muted)" }}>
-                  {entries.length > 0 ? avg.toFixed(1) : "—"}
-                </p>
-                <div className="flex gap-1">
-                  {[1,2,3,4,5].map(s => (
-                    <Star key={s} className="w-5 h-5" fill={s <= Math.round(avg) ? STAR_COLORS[Math.round(avg)] : "none"} style={{ color: s <= Math.round(avg) ? STAR_COLORS[Math.round(avg)] : "var(--border)" }} />
-                  ))}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Star className="w-3.5 h-3.5" fill={STAR_COLORS[Math.round(a.avg)]} style={{ color: STAR_COLORS[Math.round(a.avg)] }} />
+                    <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{a.avg.toFixed(1)}</span>
+                  </div>
                 </div>
-                <p className="text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                  Based on {entries.length} rating{entries.length !== 1 ? "s" : ""} in {MONTHS[filterMonth-1]} {filterYear}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+              ))}
+            </CardContent>
+          </Card>
 
-          {/* Score Guide */}
+          {/* Score breakdown explanation */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>SCORE GUIDE</CardTitle>
@@ -260,7 +224,7 @@ export default function CSATPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>
-              {isAdmin ? "ALL RATINGS" : "MY RATINGS"} — {MONTHS[filterMonth-1]} {filterYear}
+              ALL RATINGS — {MONTHS[filterMonth-1]} {filterYear}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -275,13 +239,7 @@ export default function CSATPage() {
             ) : (
               <table className="crm-table">
                 <thead>
-                  <tr>
-                    <th>Ticket</th>
-                    {isAdmin && <th>Agent</th>}
-                    <th>Score</th>
-                    <th>Notes</th>
-                    <th>Date</th>
-                  </tr>
+                  <tr><th>Ticket</th><th>Agent</th><th>Score</th><th>Notes</th><th>Date</th></tr>
                 </thead>
                 <tbody>
                   {entries.map(e => (
@@ -294,16 +252,14 @@ export default function CSATPage() {
                           </Link>
                         ) : <span style={{ color: "var(--text-muted)" }}>—</span>}
                       </td>
-                      {isAdmin && (
-                        <td>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
-                              {e.agent?.name?.split(" ").map(n => n[0]).join("").slice(0,2) ?? "?"}
-                            </div>
-                            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{e.agent?.name ?? "—"}</span>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
+                            {e.agent?.name?.split(" ").map(n => n[0]).join("").slice(0,2) ?? "?"}
                           </div>
-                        </td>
-                      )}
+                          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{e.agent?.name ?? "—"}</span>
+                        </div>
+                      </td>
                       <td>
                         <div className="flex items-center gap-1">
                           {[1,2,3,4,5].map(s => (
