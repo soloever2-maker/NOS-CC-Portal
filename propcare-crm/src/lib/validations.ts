@@ -10,7 +10,7 @@ export const InteractionTypeSchema = z.enum(["CALL","EMAIL","WHATSAPP","MEETING"
 
 export const CreateTicketSchema = z.object({
   title: z.string().min(3).max(200),
-  description: z.string().min(10),
+  description: z.string().min(1),
   status: TicketStatusSchema.default("OPEN"),
   priority: TicketPrioritySchema.default("MEDIUM"),
   category: TicketCategorySchema.default("OTHER"),
