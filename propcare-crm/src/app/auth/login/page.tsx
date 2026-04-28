@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -14,11 +14,51 @@ import { useTheme } from "@/components/layout/theme-provider";
 export default function LoginPage() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail]           = useState("");
+  const [password, setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+
+  // ── Handle Supabase invite/recovery hash on page load ──────────────────
+  useEffect(() => {
+    const hash = window.location.hash.substring(1);
+    if (!hash) return;
+
+    const params = new URLSearchParams(hash);
+    const accessToken  = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    const type         = params.get("type");
+    const errorCode    = params.get("error_code");
+
+    // If there's an error in the hash, show it
+    if (errorCode) {
+      if (errorCode === "otp_expired") {
+        setError("This invite link has expired. Please ask your admin to send a new invite.");
+      } else {
+        setError("Invalid or expired link. Please contact your administrator.");
+      }
+      window.location.hash = "";
+      return;
+    }
+
+    // If we have tokens, set the session and redirect to set-password
+    if (accessToken && refreshToken) {
+      const supabase = createClient();
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error: sessionError }) => {
+          if (sessionError) {
+            setError("Authentication failed. Please try again.");
+            return;
+          }
+          if (type === "invite" || type === "recovery") {
+            router.replace("/auth/set-password");
+          } else {
+            router.replace("/dashboard");
+          }
+        });
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +70,11 @@ export default function LoginPage() {
       if (authError) { setError(authError.message); return; }
       router.replace("/dashboard");
       router.refresh();
-    } catch { setError("An unexpected error occurred. Please try again."); }
-    finally { setLoading(false); }
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
