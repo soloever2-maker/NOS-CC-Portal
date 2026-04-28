@@ -5,6 +5,7 @@ import { Target, Ticket, CheckCircle, Clock, Star } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { getKPIScore, getKPIScoreColor, calcOverallScore, type KPISetting, type AgentStats } from "@/lib/kpi-utils";
 
 interface KPISetting {
   id: string; name: string; target: number; weight: number;
@@ -50,29 +51,10 @@ export default function MyKPIPage() {
     });
   }, [selectedMonth, selectedYear]);
 
-  const getScore = (kpi: KPISetting): number => {
-    if (kpi.name.includes("CSAT") || kpi.name.includes("Satisfaction")) return stats.csatAvg;
-    if (kpi.name.includes("SLA")) return stats.slaCompliance;
-    if (kpi.name.includes("CRM") || kpi.name.includes("Logging")) return stats.totalTickets > 0 ? 95 : 0;
-    if (kpi.name.includes("Database")) return stats.totalTickets > 0 ? 90 : 0;
-    if (kpi.name.includes("Engagement")) return stats.totalTickets > 0 ? 75 : 0;
-    return 0;
-  };
+  const getScore = (kpi: KPISetting): number => getKPIScore(kpi, stats);
+  const getScoreColor = (score: number, target: number): string => getKPIScoreColor(score, target);
 
-  const getScoreColor = (score: number, target: number) => {
-    const pct = (score / target) * 100;
-    if (pct >= 100) return "var(--success)";
-    if (pct >= 80) return "var(--warning)";
-    return "var(--danger)";
-  };
-
-  const totalWeight = kpis.reduce((sum, kpi) => sum + kpi.weight, 0);
-  const overallScore = kpis.length > 0 && totalWeight > 0
-    ? Math.min(Math.round(kpis.reduce((sum, kpi) => {
-        const score = getScore(kpi);
-        return sum + (score / kpi.target) * (kpi.weight / totalWeight) * 100;
-      }, 0)), 100)
-    : 0;
+  const overallScore = calcOverallScore(kpis, stats);
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
