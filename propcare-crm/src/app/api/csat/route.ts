@@ -8,6 +8,9 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
+    const { data: profile } = await supabase.from("users").select("id, role").eq("supabase_id", user.id).single();
+    const isAdmin = profile && ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(profile.role);
+
     const { searchParams } = new URL(req.url);
     const month   = Number(searchParams.get("month"));
     const year    = Number(searchParams.get("year"));
@@ -20,7 +23,12 @@ export async function GET(req: NextRequest) {
       .eq("year", year)
       .order("created_at", { ascending: false });
 
-    if (agentId && agentId !== "ALL") query = query.eq("agent_id", agentId);
+    // ── Agents only see their own CSAT ──────────────────────────────────
+    if (!isAdmin && profile) {
+      query = query.eq("agent_id", profile.id);
+    } else if (agentId && agentId !== "ALL") {
+      query = query.eq("agent_id", agentId);
+    }
 
     const { data, error } = await query;
     if (error) throw error;

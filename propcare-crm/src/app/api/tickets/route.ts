@@ -122,20 +122,45 @@ export async function POST(req: NextRequest) {
     const body = parseResult.data;
     const code = generateCode("TKT");
 
+    // ── Resolve SLA hours at creation time so stats always have accurate data ──
+    const { data: slaSettings } = await supabase
+      .from("sla_settings")
+      .select("ticket_type, source, hours")
+      .eq("is_active", true);
+
+    const slaMap: Record<string, number> = {};
+    for (const s of slaSettings ?? []) {
+      const key = s.source ? `${s.ticket_type}:${s.source}` : `${s.ticket_type}:default`;
+      slaMap[key] = s.hours;
+    }
+    const category = body.category ?? "OTHER";
+    const source   = body.source ?? "walk_in";
+    const resolvedSlaHours =
+      slaMap[`${category}:${source}`] ??
+      slaMap[`${category}:default`] ??
+      null;
+
+    // Calculate due_date = now + sla_hours (never taken from user input)
+    const createdAt = new Date();
+    const dueDate = resolvedSlaHours
+      ? new Date(createdAt.getTime() + resolvedSlaHours * 60 * 60 * 1000)
+      : null;
+
     const { data, error } = await supabase.from("tickets").insert({
       id: crypto.randomUUID(), code,
       title: body.title, description: body.description,
       status: body.status ?? "OPEN",
       priority: body.priority ?? "MEDIUM",
-      category: body.category ?? "OTHER",
+      category,
       contact_status: body.contactStatus ?? "NOT_CONTACTED",
       project: body.project || null,
-      source: body.source ?? "walk_in",
+      source,
+      sla_hours: resolvedSlaHours,   // stored at creation from SLA settings
+      due_date: dueDate?.toISOString() ?? null, // always = created_at + sla_hours
       client_id: body.clientId || null,
       unit_id: body.unitId || null,
-      assigned_to_id: isAdmin ? (body.assignedToId || null) : null,
+      assigned_to_id: isAdmin ? (body.assignedToId || null) : (userRecord?.id ?? null),
       created_by_id: userRecord?.id ?? user.id,
-      due_date: body.dueDate || null,
       tags: body.tags ?? [],
       attachments: [],
     }).select().single();
