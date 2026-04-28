@@ -37,7 +37,7 @@ export default function MyKPIPage() {
         supabase.from("tickets").select("*", { count: "exact", head: true }).eq("assigned_to_id", profile.id).eq("status", "OPEN"),
         supabase.from("csat_scores").select("score").eq("agent_id", profile.id).eq("month", selectedMonth).eq("year", selectedYear),
         supabase.from("kpi_settings").select("*").eq("is_active", true).order("weight", { ascending: false }),
-        supabase.from("competency_scores").select("trust, client, results").eq("agent_id", profile.id).eq("month", selectedMonth).eq("year", selectedYear).single(),
+        supabase.from("competency_scores").select("trust, client, results").eq("agent_id", profile.id).eq("month", selectedMonth).eq("year", selectedYear).maybeSingle(),
       ]);
 
       const csatAvg      = csat && csat.length > 0 ? Math.min(Math.round((csat.reduce((s, c) => s + c.score, 0) / csat.length) * 20), 100) : 0;
