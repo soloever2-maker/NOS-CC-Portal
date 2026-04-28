@@ -126,7 +126,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       await fetchCount(profile.id);
 
       const channel = sb
-        .channel(`notif:${profile.id}`)
+        .channel(`notif-${profile.id}-${Date.now()}`)
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${profile.id}` }, (payload) => {
           playDing();
           fetchCount(profile.id);
