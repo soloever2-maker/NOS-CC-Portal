@@ -12,7 +12,7 @@ export interface KPISetting {
 export interface AgentStats {
   totalTickets: number;
   resolvedTickets: number;
-  openTickets: number;
+  openTickets?: number;
   csatAvg: number;
   slaCompliance: number;
 }
