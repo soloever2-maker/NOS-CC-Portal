@@ -110,10 +110,17 @@ export default function SettingsPage() {
     finally { setPrefsSaving(false); setTimeout(() => setPrefsMsg(null), 3000); }
   };
 
-  const togglePref = (key: string, channel: "email" | "inapp") => {
-    setPrefs(p => ({ ...p, [key]: { ...p[key], [channel]: !p[key]?.[channel] } }));
-  };
-
+const togglePref = (key: string, channel: "email" | "inapp") => {
+  setPrefs(p => ({
+    ...p,
+    [key]: {
+      email: p[key]?.email ?? true,
+      inapp: p[key]?.inapp ?? true,
+      [channel]: !(p[key]?.[channel] ?? true),
+    },
+  }));
+};
+  
   // ── Invite ─────────────────────────────────────────
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
