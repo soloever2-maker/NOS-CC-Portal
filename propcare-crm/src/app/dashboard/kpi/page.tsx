@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { getKPIScore, getKPIScoreColor, calcOverallScore, type KPISetting, type AgentStats } from "@/lib/kpi-utils";
 
 interface KPISetting {
   id: string; name: string; target: number; weight: number;
@@ -78,21 +79,8 @@ useEffect(() => {
     setEditingId(null);
   };
 
-  const getScore = (kpi: KPISetting, agentData: AgentKPI): number => {
-    if (kpi.name.includes("CSAT") || kpi.name.includes("Satisfaction")) return agentData.csatAvg;
-    if (kpi.name.includes("SLA")) return agentData.slaCompliance;
-    if (kpi.name.includes("CRM") || kpi.name.includes("Logging")) return agentData.totalTickets > 0 ? 95 : 0;
-    if (kpi.name.includes("Database")) return agentData.totalTickets > 0 ? 90 : 0;
-    if (kpi.name.includes("Engagement")) return agentData.totalTickets > 0 ? 75 : 0;
-    return 0;
-  };
-
-  const getScoreColor = (score: number, target: number) => {
-    const pct = (score / target) * 100;
-    if (pct >= 100) return "var(--success)";
-    if (pct >= 80) return "var(--warning)";
-    return "var(--danger)";
-  };
+  const getScore = (kpi: KPISetting, agentData: AgentKPI): number => getKPIScore(kpi, agentData);
+  const getScoreColor = (score: number, target: number): string => getKPIScoreColor(score, target);
 
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -174,11 +162,7 @@ useEffect(() => {
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {agentKPIs.map(agent => {
-                const totalWeightedScore = kpiSettings.reduce((sum, kpi) => {
-                  const score = getScore(kpi, agent);
-                  return sum + (score / kpi.target * kpi.weight);
-                }, 0);
-                const overallScore = Math.min(Math.round(totalWeightedScore), 100);
+                const overallScore = calcOverallScore(kpiSettings, agent);
 
                 return (
                   <Card key={agent.agentId}>
