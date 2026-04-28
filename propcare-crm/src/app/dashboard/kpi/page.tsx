@@ -57,7 +57,7 @@ export default function KPIDashboardPage() {
         supabase.from("tickets").select("*", { count: "exact", head: true }).eq("assigned_to_id", agent.id),
         supabase.from("tickets").select("*", { count: "exact", head: true }).eq("assigned_to_id", agent.id).in("status", ["RESOLVED", "CLOSED"]),
         supabase.from("csat_scores").select("score").eq("agent_id", agent.id).eq("month", selectedMonth).eq("year", selectedYear),
-        supabase.from("competency_scores").select("*").eq("agent_id", agent.id).eq("month", selectedMonth).eq("year", selectedYear).single(),
+        supabase.from("competency_scores").select("*").eq("agent_id", agent.id).eq("month", selectedMonth).eq("year", selectedYear).maybeSingle(),
       ]);
 
       const csatAvg = csat && csat.length > 0
