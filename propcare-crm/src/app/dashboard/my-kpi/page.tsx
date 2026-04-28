@@ -66,10 +66,11 @@ export default function MyKPIPage() {
     return "var(--danger)";
   };
 
-  const overallScore = kpis.length > 0
+  const totalWeight = kpis.reduce((sum, kpi) => sum + kpi.weight, 0);
+  const overallScore = kpis.length > 0 && totalWeight > 0
     ? Math.min(Math.round(kpis.reduce((sum, kpi) => {
         const score = getScore(kpi);
-        return sum + (score / kpi.target * kpi.weight);
+        return sum + (score / kpi.target) * (kpi.weight / totalWeight) * 100;
       }, 0)), 100)
     : 0;
 
