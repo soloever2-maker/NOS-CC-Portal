@@ -9,11 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { getKPIScore, getKPIScoreColor, calcOverallScore, type KPISetting, type AgentStats } from "@/lib/kpi-utils";
 
-interface KPISetting {
-  id: string; name: string; target: number; weight: number;
-  reporting_frequency: string; is_active: boolean;
-}
-
 interface Agent {
   id: string; name: string; email: string; role: string;
 }
