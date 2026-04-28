@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Ticket, CheckCircle, AtSign, Settings, X, Bell } from "lucide-react";
 
@@ -107,6 +107,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
   const [userId,      setUserId]      = useState<string | null>(null);
   const [toasts,      setToasts]      = useState<ToastItem[]>([]);
+  const seenIds = useRef<Set<string>>(new Set());
 
   const dismiss = useCallback((id: string) => setToasts(p => p.filter(t => t.id !== id)), []);
 
@@ -126,11 +127,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       await fetchCount(profile.id);
 
       const channel = sb
-        .channel(`notif-${profile.id}-${Date.now()}`)
+        .channel(`notif:${profile.id}`)
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${profile.id}` }, (payload) => {
+          const n = payload.new as { id: string; type: string; title: string; message: string; link?: string };
+          if (seenIds.current.has(n.id)) return;
+          seenIds.current.add(n.id);
           playDing();
           fetchCount(profile.id);
-          const n = payload.new as { id: string; type: string; title: string; message: string; link?: string };
           setToasts(p => [...p, { id: n.id, type: n.type, title: n.title, message: n.message, link: n.link }]);
         })
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${profile.id}` }, () => {
