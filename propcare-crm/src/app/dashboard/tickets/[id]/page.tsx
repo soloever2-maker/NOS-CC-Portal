@@ -554,11 +554,14 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   <div className="mt-3 pt-3 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
                     <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Set SLA</p>
                     {slaSettings.length > 0 && (
-                      <Select key={slaHours ?? "sla"} onValueChange={(v) => handleSLA(parseInt(v))}>
+                      <Select key={slaHours ?? "sla"} onValueChange={(v) => {
+                        const setting = slaSettings.find(s => s.id === v);
+                        if (setting) handleSLA(setting.hours);
+                        }}>
                         <SelectTrigger className="h-8 text-xs w-full"><SelectValue placeholder="Choose preset…" /></SelectTrigger>
                         <SelectContent>
                           {slaSettings.map(s => (
-                            <SelectItem key={s.id} value={String(s.hours)}>
+                            <SelectItem key={s.id} value={s.id}>
                               <div className="flex items-center gap-3">
                                 <span>{TICKET_CATEGORY_LABELS[s.ticket_type as keyof typeof TICKET_CATEGORY_LABELS] ?? s.ticket_type}</span>
                                 <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{s.source ? SOURCE_LABELS[s.source] : "All"} · {s.hours}h</span>
