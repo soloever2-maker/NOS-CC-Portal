@@ -2,6 +2,14 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const CONTACT_STATUS_LABELS: Record<string, string> = {
+  NOT_CONTACTED:      "Not Contacted",
+  NO_ANSWER:          "No Answer",
+  NOT_REACHABLE:      "Not Reachable",
+  REACHED:            "Reached",
+  CALLBACK_REQUESTED: "Callback Requested",
+};
+
 async function notifyUsers(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userIds: string[],
@@ -23,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!profile) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const { data: ticket } = await supabase.from("tickets")
-      .select("code, title, assigned_to_id, created_by_id, created_at, sla_hours")
+      .select("code, title, assigned_to_id, created_by_id, created_at, sla_hours, contact_status")
       .eq("id", params.id).single();
 
     const isAdmin = ["ADMIN","SUPER_ADMIN","MANAGER"].includes(profile.role);
@@ -61,23 +69,41 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const ticketTitle = ticket?.title ?? "Ticket";
     const notifLink   = `/dashboard/tickets/${params.id}`;
 
-    // جيب كل الأدمن والمانجر ما عدا اللي عمل التغيير
     const { data: admins } = await supabase.from("users")
       .select("id").in("role", ["ADMIN","SUPER_ADMIN","MANAGER"])
       .eq("is_active", true).neq("id", profile.id);
     const adminIds = (admins ?? []).map(a => a.id);
+
+    // ── Contact Status change ─────────────────────────────────────────────
+    if (body.contactStatus && body.contactStatus !== ticket?.contact_status) {
+      const label = CONTACT_STATUS_LABELS[body.contactStatus] ?? body.contactStatus;
+
+      await notifyUsers(supabase, adminIds, {
+        type:    "TICKET_UPDATED",
+        title:   `Contact: ${label}`,
+        message: `${ticketCode} — ${ticketTitle}`,
+        link:    notifLink,
+      });
+
+      if (ticket?.assigned_to_id && ticket.assigned_to_id !== profile.id) {
+        await notifyUsers(supabase, [ticket.assigned_to_id], {
+          type:    "TICKET_UPDATED",
+          title:   `Contact Status Updated: ${label}`,
+          message: `${ticketCode} — ${ticketTitle}`,
+          link:    notifLink,
+        });
+      }
+    }
 
     // ── Reassignment ──────────────────────────────────────────────────────
     const prevAssignee  = ticket?.assigned_to_id ?? null;
     const newAssigneeId = isAdmin && body.assignedToId !== undefined ? (body.assignedToId || null) : null;
 
     if (newAssigneeId && newAssigneeId !== prevAssignee) {
-      // notify new agent
       await notifyUsers(supabase, [newAssigneeId], {
         type: "TICKET_ASSIGNED", title: "Ticket Assigned to You",
         message: `${ticketCode} — ${ticketTitle}`, link: notifLink,
       });
-      // notify admins
       await notifyUsers(supabase, adminIds, {
         type: "TICKET_UPDATED", title: "Ticket Reassigned",
         message: `${ticketCode} — ${ticketTitle}`, link: notifLink,
@@ -87,35 +113,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // ── Status change ─────────────────────────────────────────────────────
     if (body.status) {
       const isResolved = ["RESOLVED","CLOSED"].includes(body.status);
-      const statusTitle = isResolved ? "Ticket Resolved" : `Status: ${body.status}`;
 
-      // notify agent (if someone else changed it)
       if (ticket?.assigned_to_id && ticket.assigned_to_id !== profile.id) {
         await notifyUsers(supabase, [ticket.assigned_to_id], {
-          type: isResolved ? "TICKET_RESOLVED" : "TICKET_UPDATED",
-          title: isResolved ? "Ticket Marked as Resolved" : `Ticket Status Changed to ${body.status}`,
+          type:    isResolved ? "TICKET_RESOLVED" : "TICKET_UPDATED",
+          title:   isResolved ? "Ticket Marked as Resolved" : `Status Changed: ${body.status}`,
           message: `${ticketCode} — ${ticketTitle}`, link: notifLink,
         });
       }
-      // notify admins
       await notifyUsers(supabase, adminIds, {
-        type: isResolved ? "TICKET_RESOLVED" : "TICKET_UPDATED",
-        title: statusTitle, message: `${ticketCode} — ${ticketTitle}`, link: notifLink,
+        type:    isResolved ? "TICKET_RESOLVED" : "TICKET_UPDATED",
+        title:   isResolved ? "Ticket Resolved" : `Status: ${body.status}`,
+        message: `${ticketCode} — ${ticketTitle}`, link: notifLink,
       });
     }
 
     // ── Priority change ───────────────────────────────────────────────────
     if (body.priority) {
-      // notify agent
       if (ticket?.assigned_to_id && ticket.assigned_to_id !== profile.id) {
         await notifyUsers(supabase, [ticket.assigned_to_id], {
-          type: "TICKET_UPDATED", title: `Priority Changed to ${body.priority}`,
+          type: "TICKET_UPDATED", title: `Priority Changed: ${body.priority}`,
           message: `${ticketCode} — ${ticketTitle}`, link: notifLink,
         });
       }
-      // notify admins
       await notifyUsers(supabase, adminIds, {
-        type: "TICKET_UPDATED", title: `Priority Changed to ${body.priority}`,
+        type: "TICKET_UPDATED", title: `Priority Changed: ${body.priority}`,
         message: `${ticketCode} — ${ticketTitle}`, link: notifLink,
       });
     }
