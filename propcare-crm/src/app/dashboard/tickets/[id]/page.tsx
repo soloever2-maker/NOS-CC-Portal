@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle, Star, Phone, MessageCircle } from "lucide-react";
+import { ArrowLeft, Clock, Building2, Tag, MessageSquare, Send, Lock, CheckCircle, RefreshCw, X, AlertCircle, Star, Phone, MessageCircle, Eye } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-elements";
@@ -123,7 +123,11 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       .then(({ data }) => setComments(data ?? []));
   }, [params.id]);
 
+  // ── view-only: agent looking at someone else's ticket ─────────────────────
+  const viewOnly = !isAdmin && myUserId !== null && ticket?.assigned_to?.id !== myUserId;
+
   const handleStatusChange = async (status: TicketStatus) => {
+    if (viewOnly) return;
     await fetch(`/api/tickets/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -133,6 +137,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   };
 
   const handleContactStatus = async (cs: ContactStatus) => {
+    if (viewOnly) return;
     await fetch(`/api/tickets/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -153,7 +158,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       body: JSON.stringify({ assignedToId: agentId }),
     });
 
-    // Log reassignment in ticket_history
     if (myUserId) {
       await supabase.from("ticket_history").insert({
         id: crypto.randomUUID(),
@@ -167,7 +171,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
     setAssignKey(k => k + 1);
 
-    // Send in-app notification
     if (ticket && myUserId) {
       await supabase.from("notifications").insert({
         id: crypto.randomUUID(),
@@ -227,7 +230,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   };
 
   const handleComment = async () => {
-    if (!comment.trim()) return;
+    if (!comment.trim() || viewOnly) return;
     setSubmitting(true);
     try {
       const supabase = createClient();
@@ -247,7 +250,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const csContact = contactStatus ? CONTACT_STATUS_COLORS[contactStatus] : null;
 
   const handleSaveEdit = async () => {
-    if (!ticket) return;
+    if (!ticket || viewOnly) return;
     setEditSaving(true);
     try {
       const res = await fetch(`/api/tickets/${ticket.id}`, {
@@ -281,6 +284,16 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       <Topbar title={ticket.code} subtitle={editMode ? "Editing…" : ticket.title}
         actions={<Button variant="ghost" size="sm" asChild><Link href="/dashboard/tickets"><ArrowLeft className="w-3.5 h-3.5" /> Back</Link></Button>}
       />
+
+      {/* ── View-only banner ── */}
+      {viewOnly && (
+        <div className="mx-5 mt-4 flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-sm"
+          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.25)", color: "#60a5fa" }}>
+          <Eye className="w-4 h-4 shrink-0" />
+          <span>View only — this ticket is assigned to <strong>{ticket.assigned_to?.name ?? "another agent"}</strong></span>
+        </div>
+      )}
+
       <div className="flex-1 p-5">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 max-w-7xl">
 
@@ -299,7 +312,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                       <Tag className="w-2.5 h-2.5" />{tag}
                     </span>
                   ))}
-                  {/* Contact Status badge */}
                   {contactStatus && csContact && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: csContact.bg, color: csContact.color, border: `1px solid ${csContact.color}44` }}>
                       <Phone className="w-2.5 h-2.5" />{CONTACT_STATUS_LABELS[contactStatus]}
@@ -353,11 +365,14 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   <>
                     <div className="flex items-center justify-between mt-2 mb-1">
                       <h2 className="text-xl font-semibold" style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}>{ticket.title}</h2>
-                      <button onClick={() => { setEditForm({ title: ticket.title, description: ticket.description, category: ticket.category, priority: ticket.priority }); setEditMode(true); }}
-                        className="w-6 h-6 flex items-center justify-center rounded-[6px] shrink-0 ml-2"
-                        style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                      </button>
+                      {/* edit button — hidden in view-only mode */}
+                      {!viewOnly && (
+                        <button onClick={() => { setEditForm({ title: ticket.title, description: ticket.description, category: ticket.category, priority: ticket.priority }); setEditMode(true); }}
+                          className="w-6 h-6 flex items-center justify-center rounded-[6px] shrink-0 ml-2"
+                          style={{ background: "var(--gold-glow)", color: "var(--gold-500)", border: "1px solid var(--border)" }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                        </button>
+                      )}
                     </div>
                     <div className="text-sm whitespace-pre-line leading-relaxed" style={{ color: "var(--text-secondary)" }}>{ticket.description}</div>
                   </>
@@ -366,7 +381,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             </Card>
 
             {/* Status + Contact Status Actions */}
-            <div className="space-y-2">
+            <div className="space-y-2" style={ viewOnly ? { opacity: 0.45, pointerEvents: "none" } : {}}>
               <div className="flex flex-wrap gap-2">
                 {STATUS_ACTIONS.map(({ status, label, icon: Icon, color }) => (
                   <button key={status} onClick={() => handleStatusChange(status)}
@@ -376,7 +391,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   </button>
                 ))}
               </div>
-              {/* Contact Status */}
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <span className="text-xs self-center" style={{ color: "var(--text-muted)" }}>Contact:</span>
                 {CONTACT_STATUSES.map(cs => {
@@ -422,20 +436,24 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     </div>
                   </div>
                 ))}
-                <div className="flex gap-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                  <Avatar className="h-7 w-7 shrink-0 mt-1"><AvatarFallback className="text-[10px]">ME</AvatarFallback></Avatar>
-                  <div className="flex-1 space-y-2">
-                    <Textarea placeholder="Write a comment…" value={comment} onChange={e => setComment(e.target.value)} rows={3} />
-                    <div className="flex items-center justify-between">
-                      <button type="button" onClick={() => setIsInternal(!isInternal)} className="flex items-center gap-1.5 text-xs font-medium transition-colors" style={{ color: isInternal ? "var(--warning)" : "var(--text-muted)" }}>
-                        <Lock className="w-3.5 h-3.5" />{isInternal ? "Internal note" : "Make internal"}
-                      </button>
-                      <Button size="sm" onClick={handleComment} loading={submitting} disabled={!comment.trim()}>
-                        <Send className="w-3.5 h-3.5" />{submitting ? "Sending…" : "Comment"}
-                      </Button>
+
+                {/* Comment input — hidden in view-only mode */}
+                {!viewOnly && (
+                  <div className="flex gap-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                    <Avatar className="h-7 w-7 shrink-0 mt-1"><AvatarFallback className="text-[10px]">ME</AvatarFallback></Avatar>
+                    <div className="flex-1 space-y-2">
+                      <Textarea placeholder="Write a comment…" value={comment} onChange={e => setComment(e.target.value)} rows={3} />
+                      <div className="flex items-center justify-between">
+                        <button type="button" onClick={() => setIsInternal(!isInternal)} className="flex items-center gap-1.5 text-xs font-medium transition-colors" style={{ color: isInternal ? "var(--warning)" : "var(--text-muted)" }}>
+                          <Lock className="w-3.5 h-3.5" />{isInternal ? "Internal note" : "Make internal"}
+                        </button>
+                        <Button size="sm" onClick={handleComment} loading={submitting} disabled={!comment.trim()}>
+                          <Send className="w-3.5 h-3.5" />{submitting ? "Sending…" : "Comment"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -443,7 +461,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
           {/* ── Sidebar ── */}
           <div className="space-y-4">
 
-            {/* Client card with WhatsApp */}
             {ticket.client && (
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>CLIENT</CardTitle></CardHeader>
@@ -491,7 +508,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               </Card>
             )}
 
-            {/* Assignment */}
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -540,7 +556,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               </CardContent>
             </Card>
 
-            {/* SLA */}
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -581,7 +596,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               </CardContent>
             </Card>
 
-            {/* CSAT */}
             {isAdmin && ["RESOLVED","CLOSED"].includes(currentStatus) && (
               <Card>
                 <CardHeader className="pb-2">
@@ -611,7 +625,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               </Card>
             )}
 
-            {/* Timeline */}
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold tracking-wider" style={{ color: "var(--text-muted)" }}>TIMELINE</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-xs">
