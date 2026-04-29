@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Ticket, Users, Building2,
-  BarChart3, Settings, LogOut, MessageSquare, Bell, Target, ShieldCheck, Star, Sparkles,
+BarChart3, Settings, LogOut, MessageSquare, Bell, Target, ShieldCheck, Star, Sparkles, BookOpen,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,6 +31,7 @@ const ADMIN_NAV = [
       { href: "/dashboard/csat", label: "CSAT Scores", icon: Star },
       { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
       { href: "/dashboard/ai", label: "AI Assistant", icon: Sparkles },
+      { href: "/dashboard/policies", label: "Policies",     icon: BookOpen },
     ],
   },
   {
