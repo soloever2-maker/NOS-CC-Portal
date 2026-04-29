@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       .select(`*, client:clients(id, name, phone), unit:client_units(id, unit_number, project), assigned_to:users!tickets_assigned_to_id_fkey(id, name), created_by:users!tickets_created_by_id_fkey(id, name)`)
       .order("created_at", { ascending: false });
 
-    if (!isAdmin && profile) query = query.eq("assigned_to_id", profile.id);
+    if (!isAdmin && profile && !search) query = query.eq("assigned_to_id", profile.id);
     if (status && status !== "ALL") query = query.eq("status", status);
     if (project && project !== "ALL") query = query.eq("project", project);
     if (search) query = query.or(`title.ilike.%${search}%,code.ilike.%${search}%`);
