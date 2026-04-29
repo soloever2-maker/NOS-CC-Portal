@@ -229,24 +229,54 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     setSlaSaving(false);
   };
 
-  const handleComment = async () => {
-    if (!comment.trim() || viewOnly) return;
-    setSubmitting(true);
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
-      if (!profile) return;
-      const { data: newComment } = await supabase.from("ticket_comments").insert({
-        id: crypto.randomUUID(), ticket_id: params.id, user_id: profile.id,
-        content: comment, is_internal: isInternal, attachments: [],
-      }).select("*, user:users(name)").single();
-      if (newComment) setComments(prev => [...prev, newComment]);
-      setComment("");
-    } finally { setSubmitting(false); }
-  };
+const handleComment = async () => {
+  if (!comment.trim() || viewOnly) return;
+  setSubmitting(true);
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("users").select("id").eq("supabase_id", user.id).single();
+    if (!profile) return;
 
+    const { data: newComment } = await supabase.from("ticket_comments").insert({
+      id: crypto.randomUUID(), ticket_id: params.id, user_id: profile.id,
+      content: comment, is_internal: isInternal, attachments: [],
+    }).select("*, user:users(name)").single();
+
+    if (newComment) setComments(prev => [...prev, newComment]);
+    setComment("");
+
+    // ── Notifications ──────────────────────────────────────────────────
+    if (!ticket) return;
+    const notifLink  = `/dashboard/tickets/${params.id}`;
+    const preview    = comment.length > 60 ? comment.slice(0, 60) + "…" : comment;
+    const notifTitle = isInternal ? `Internal Note on ${ticket.code}` : `New Comment on ${ticket.code}`;
+    const { data: admins } = await supabase.from("users")
+      .select("id").in("role", ["ADMIN","SUPER_ADMIN","MANAGER"])
+      .eq("is_active", true).neq("id", profile.id);
+    const adminIds = (admins ?? []).map(a => a.id);
+    const recipientIds = [...adminIds];
+    if (!isInternal && assignedTo && assignedTo.id !== profile.id) {
+      recipientIds.push(assignedTo.id);
+    }
+    const uniqueIds = [...new Set(recipientIds)];
+    if (uniqueIds.length === 0) return;
+
+    await supabase.from("notifications").insert(
+      uniqueIds.map(uid => ({
+        id:      crypto.randomUUID(),
+        user_id: uid,
+        type:    "TICKET_UPDATED",
+        title:   notifTitle,
+        message: preview,
+        link:    notifLink,
+        is_read: false,
+      }))
+    );
+  } finally { setSubmitting(false); }
+};
+  
   const csContact = contactStatus ? CONTACT_STATUS_COLORS[contactStatus] : null;
 
   const handleSaveEdit = async () => {
