@@ -81,7 +81,7 @@ export default function PoliciesPage() {
       return;
     }
     if (!data.success) {
-      setUploadError(data.error ?? "Upload failed");
+      setUploadError(typeof data.error === "string" ? data.error : JSON.stringify(data.error) ?? "Upload failed");
       setUploading(false);
       return;
     }
