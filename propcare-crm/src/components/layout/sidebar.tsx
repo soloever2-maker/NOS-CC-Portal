@@ -60,6 +60,7 @@ const AGENT_NAV = [
       { href: "/dashboard/csat", label: "CSAT Scores", icon: Star },
       { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
       { href: "/dashboard/ai", label: "AI Assistant", icon: Sparkles },
+      { href: "/dashboard/policies", label: "Policies", icon: BookOpen },
     ],
   },
   {
